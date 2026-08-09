@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from wedge import process_mobile_input, CORRECTIONS
 from video_analyzer import analyze_video, VideoAnalysisError
 
-from payments.routes import router as payments_router
+try:
+    from payments.routes import router as payments_router
+except ImportError:
+    payments_router = None
 
 app = FastAPI(
     title="GolfCoachNow API",
@@ -14,8 +17,8 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Stripe checkout, webhook and unlock status. See docs/PAYMENTS.md.
-app.include_router(payments_router)
+if payments_router is not None:
+    app.include_router(payments_router)
 
 ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "m4v"}
 MAX_FILE_SIZE = 16 * 1024 * 1024
