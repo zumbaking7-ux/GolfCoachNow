@@ -1,3 +1,10 @@
 fastapi
 python-multipart
 a2wsgi
+
+# Payments. Pinned so an install months from now matches the one these were
+# tested against. Test tools are in requirements-dev.txt.
+stripe==15.4.0
+SQLAlchemy==2.0.51
+alembic==1.19.1
+pydantic-settings==2.15.0
