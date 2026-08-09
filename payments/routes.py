@@ -14,6 +14,7 @@ from payments import stripe_gateway
 from payments.config import settings
 from payments.db import get_session
 from payments.logging_config import fields, get_logger
+from payments.rate_limit import rate_limit
 from payments.schemas import (
     CheckoutSessionRequest,
     CheckoutSessionResponse,
@@ -47,7 +48,11 @@ STRIPE_SIGNATURE_HEADER = "stripe-signature"
     "/checkout-session",
     response_model=CheckoutSessionResponse,
     summary="Start a payment for one device",
-    responses={502: {"description": "Stripe could not be reached."}},
+    dependencies=[Depends(rate_limit)],
+    responses={
+        429: {"description": "Too many requests from this address."},
+        502: {"description": "Stripe could not be reached."},
+    },
 )
 def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionResponse:
     """Create a Checkout Session bound to the calling device.
@@ -111,7 +116,7 @@ def payment_success(
         raise HTTPException(status_code=502, detail="Could not reach Stripe.") from error
 
     checkout = read_checkout_session(checkout_session)
-    if checkout.paid and checkout.device_id:
+    if checkout.can_unlock:
         grant_unlock(db, checkout, SOURCE_SUCCESS_REDIRECT)
     else:
         logger.warning(
@@ -120,6 +125,7 @@ def payment_success(
                 session_id=session_id,
                 paid=checkout.paid,
                 has_device_id=bool(checkout.device_id),
+                ours=checkout.is_ours,
             ),
         )
 
@@ -141,6 +147,8 @@ def payment_cancelled() -> RedirectResponse:
     "/unlock-status",
     response_model=UnlockStatusResponse,
     summary="Has this device paid?",
+    dependencies=[Depends(rate_limit)],
+    responses={429: {"description": "Too many requests from this address."}},
 )
 def unlock_status(
     device_id: str, db: Session = Depends(get_session)
@@ -207,15 +215,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -
 
     try:
         checkout = read_checkout_session(event["data"]["object"])
-        if checkout.paid and checkout.device_id:
+        if checkout.can_unlock:
             grant_unlock(db, checkout, SOURCE_WEBHOOK)
         else:
+            # Acknowledged rather than failed. A payment for something else
+            # sold through the same Stripe account is not an error here, it
+            # just is not ours to act on.
             logger.warning(
                 "event carried nothing to unlock %s",
                 fields(
                     event_id=event_id,
                     paid=checkout.paid,
                     has_device_id=bool(checkout.device_id),
+                    ours=checkout.is_ours,
                 ),
             )
         mark_event_processed(db, claimed)

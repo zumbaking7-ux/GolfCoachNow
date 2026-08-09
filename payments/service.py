@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from payments.logging_config import fields, get_logger
 from payments.models import ProcessedEvent, Unlock, utcnow
+from payments.stripe_gateway import PRODUCT_MARKER_KEY, PRODUCT_MARKER_VALUE
 
 logger = get_logger("service")
 
@@ -40,10 +41,20 @@ class CheckoutDetails:
     session_id: str
     device_id: str | None
     paid: bool
+    is_ours: bool
     amount_total: int
     currency: str
     payment_intent_id: str | None
     customer_email: str | None
+
+    @property
+    def can_unlock(self) -> bool:
+        """Every condition that has to hold before an unlock is written.
+
+        Kept in one place so the two callers cannot drift apart and start
+        disagreeing about what counts as a valid payment.
+        """
+        return self.paid and bool(self.device_id) and self.is_ours
 
 
 def _field(source: Any, key: str) -> Any:
@@ -74,10 +85,12 @@ def _payment_intent_id(raw: Any) -> str | None:
 def read_checkout_session(checkout_session: Any) -> CheckoutDetails:
     """Flatten a Checkout Session into the fields this service uses."""
     customer_details = _field(checkout_session, "customer_details")
+    metadata = _field(checkout_session, "metadata")
     return CheckoutDetails(
         session_id=_field(checkout_session, "id") or "",
         device_id=_field(checkout_session, "client_reference_id"),
         paid=_field(checkout_session, "payment_status") == PAYMENT_STATUS_PAID,
+        is_ours=_field(metadata, PRODUCT_MARKER_KEY) == PRODUCT_MARKER_VALUE,
         amount_total=_field(checkout_session, "amount_total") or 0,
         currency=_field(checkout_session, "currency") or "",
         payment_intent_id=_payment_intent_id(_field(checkout_session, "payment_intent")),
@@ -105,6 +118,8 @@ def grant_unlock(session: Session, checkout: CheckoutDetails, source: str) -> bo
         raise ValueError(f"refusing to unlock an unpaid session {checkout.session_id}")
     if not checkout.device_id:
         raise ValueError(f"session {checkout.session_id} has no client_reference_id")
+    if not checkout.is_ours:
+        raise ValueError(f"session {checkout.session_id} was not created by this service")
 
     session.add(
         Unlock(

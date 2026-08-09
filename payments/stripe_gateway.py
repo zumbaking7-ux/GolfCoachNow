@@ -17,6 +17,13 @@ CHECKOUT_SESSION_ID_TEMPLATE = "{CHECKOUT_SESSION_ID}"
 
 CHECKOUT_MODE_ONE_TIME = "payment"
 
+# Stamped on every session this service creates, and checked again when the
+# event comes back. One Stripe account can sell more than one thing, and a
+# webhook only says "something was paid for". Without this marker, a payment
+# for some future unrelated product would also unlock the wedge module.
+PRODUCT_MARKER_KEY = "golf_coach_now"
+PRODUCT_MARKER_VALUE = "wedge_unlock"
+
 
 def build_success_url() -> str:
     return (
@@ -40,6 +47,7 @@ def create_checkout_session(device_id: str) -> stripe.checkout.Session:
         mode=CHECKOUT_MODE_ONE_TIME,
         line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
         client_reference_id=device_id,
+        metadata={PRODUCT_MARKER_KEY: PRODUCT_MARKER_VALUE},
         success_url=build_success_url(),
         cancel_url=build_cancel_url(),
     )

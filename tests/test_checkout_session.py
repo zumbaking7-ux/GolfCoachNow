@@ -62,6 +62,27 @@ def test_redirect_urls_point_at_this_service_not_the_app(client, monkeypatch):
     assert "{CHECKOUT_SESSION_ID}" in captured["success_url"]
 
 
+def test_session_is_stamped_so_the_webhook_can_recognise_it(client, monkeypatch):
+    """One Stripe account can sell more than one thing.
+
+    A webhook only says "something was paid for". Without this marker, a
+    payment for some future unrelated product would also unlock the wedge
+    module, because it would arrive with a client_reference_id and a paid
+    status like any other.
+    """
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return FakeSession()
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
+
+    client.post("/payments/checkout-session", json={"device_id": "device_abc"})
+
+    assert captured["metadata"] == {"golf_coach_now": "wedge_unlock"}
+
+
 def test_empty_device_id_is_rejected(client):
     response = client.post("/payments/checkout-session", json={"device_id": ""})
 
