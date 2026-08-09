@@ -5,20 +5,39 @@ import json
 import hashlib
 import random
 
-try:
-    import cv2
-    import numpy as np
-    CV_AVAILABLE = True
-except ImportError:
-    CV_AVAILABLE = False
-
-try:
-    import mediapipe as mp
-    MP_AVAILABLE = True
-except ImportError:
-    MP_AVAILABLE = False
-
 from wedge import CORRECTIONS
+
+cv2 = None
+np = None
+mp = None
+
+
+def _ensure_cv():
+    global cv2, np
+    if cv2 is not None:
+        return True
+    try:
+        import cv2 as _cv2
+        import numpy as _np
+        cv2 = _cv2
+        np = _np
+        return True
+    except ImportError:
+        return False
+
+
+def _ensure_mp():
+    global mp
+    if mp is not None:
+        return True
+    if not _ensure_cv():
+        return False
+    try:
+        import mediapipe as _mp
+        mp = _mp
+        return True
+    except ImportError:
+        return False
 
 FAULT_KEYS = list(CORRECTIONS.keys())
 
@@ -37,13 +56,13 @@ def analyze_video(file_path):
     if not os.path.exists(file_path):
         raise VideoAnalysisError("Video file not found")
 
-    if MP_AVAILABLE and CV_AVAILABLE:
+    if _ensure_mp():
         try:
             return _to_python_floats(_analyze_with_pose(file_path))
         except Exception:
             pass
 
-    if CV_AVAILABLE:
+    if _ensure_cv():
         try:
             return _to_python_floats(_analyze_with_motion(file_path))
         except Exception:

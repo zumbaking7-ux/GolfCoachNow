@@ -1,1 +1,3 @@
-flask
+fastapi
+python-multipart
+a2wsgi
