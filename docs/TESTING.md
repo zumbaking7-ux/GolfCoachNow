@@ -22,6 +22,9 @@ What is covered:
 - The `unlock-status` response shape, which the mobile app is written against.
 - The redirect URLs sent to Stripe are https and carry the session ID
   template.
+- A missing Stripe variable stops startup with a message naming the variable
+  and pointing at the deployment docs, and the app's deep link is rejected as
+  `PUBLIC_BASE_URL`.
 
 The tests build the database with the real Alembic migration rather than
 `create_all`, so the schema they run against is the schema that ships,

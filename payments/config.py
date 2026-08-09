@@ -6,7 +6,7 @@ malformed variable stops the process at startup rather than surfacing hours
 later as a failed webhook.
 """
 
-from pydantic import field_validator
+from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_URL_SCHEMES = ("http://", "https://")
@@ -46,4 +46,32 @@ class Settings(BaseSettings):
         return value.rstrip("/")
 
 
-settings = Settings()
+def _configuration_error(error: ValidationError) -> str:
+    """Turn a validation failure into something a person can act on.
+
+    Whoever hits this is usually looking at a service that will not start,
+    often during a deploy, so the message has to say which variables are wrong
+    and where to set them without anyone having to read this file.
+    """
+    problems = "\n".join(
+        f"  - {str(detail['loc'][0]).upper()}: {detail['msg']}"
+        for detail in error.errors()
+    )
+    return (
+        "\n\nPayments configuration is incomplete, so the application will not "
+        "start.\n\n"
+        f"{problems}\n\n"
+        "Set these in the environment, or in a .env file next to the project, "
+        "then reload.\nSee docs/DEPLOYMENT.md for the full list and what each "
+        "one is for.\n\n"
+        "This check runs at startup deliberately. A payment service should not "
+        "run half\nconfigured and discover the problem on a customer's card.\n"
+    )
+
+
+try:
+    settings = Settings()
+except ValidationError as error:
+    # `from None` hides the pydantic traceback so the instructions above are
+    # the first thing in the log rather than the last.
+    raise RuntimeError(_configuration_error(error)) from None
