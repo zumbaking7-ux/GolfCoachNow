@@ -1,0 +1,42 @@
+{
+  "id": "evt_1PxTestEvent0001",
+  "object": "event",
+  "api_version": "2025-03-31.basil",
+  "created": 1786000000,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "type": "checkout.session.completed",
+  "request": {
+    "id": null,
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "cs_test_a1b2c3d4e5f6",
+      "object": "checkout.session",
+      "amount_subtotal": 995,
+      "amount_total": 995,
+      "cancel_url": "https://api.example.com/payments/cancel",
+      "client_reference_id": "8f14e45fceea167a",
+      "created": 1786000000,
+      "currency": "usd",
+      "customer": null,
+      "customer_details": {
+        "address": null,
+        "email": "buyer@example.com",
+        "name": "Test Buyer",
+        "phone": null,
+        "tax_exempt": "none",
+        "tax_ids": []
+      },
+      "expires_at": 1786086400,
+      "livemode": false,
+      "mode": "payment",
+      "payment_intent": "pi_3PxTestPaymentIntent",
+      "payment_status": "paid",
+      "status": "complete",
+      "success_url": "https://api.example.com/payments/success?session_id={CHECKOUT_SESSION_ID}",
+      "url": null
+    }
+  }
+}
