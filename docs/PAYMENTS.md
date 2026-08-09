@@ -95,6 +95,7 @@ Open `checkout_url` in a browser. It expires 24 hours after creation.
 | --- | --- |
 | 200 | Session created. |
 | 422 | `device_id` missing or empty. |
+| 429 | Too many requests from this address. `Retry-After` says how long to wait. |
 | 502 | Stripe could not be reached. Safe to retry. |
 
 ### GET /payments/success
@@ -137,6 +138,7 @@ A device that has never paid gets the same `200` with `"unlocked": false` and
 | --- | --- |
 | 200 | Always, for any device ID. |
 | 422 | `device_id` missing. |
+| 429 | Too many requests from this address. `Retry-After` says how long to wait. |
 
 ### POST /payments/webhook
 
@@ -181,6 +183,46 @@ decision while holding a lock, so only one can win.
 the moment an event is claimed until it is finished. If processing dies partway
 through, the handler returns 500, Stripe retries, and the retry sees a claimed
 but unfinished row and picks the work back up.
+
+## What protects this
+
+**The webhook is a public URL**, so signature verification is the only thing
+between it and anyone who can send a POST. It uses Stripe's own library, which
+compares in constant time and rejects timestamps outside a five minute window,
+so a captured event cannot be replayed later. A failed signature returns 400 and
+writes nothing.
+
+**Signatures are checked against the raw request bytes.** Stripe signs the exact
+body it sent, so parsing the JSON and re-serialising it would break every
+signature. The handler reads `await request.body()` before anything touches it.
+
+**Payments are confirmed with Stripe, never with the caller.** Anyone can open
+`/payments/success` with any session ID. The endpoint ignores what it was given
+and asks Stripe directly whether that session is paid.
+
+**Sessions are stamped and checked.** Every session this service creates carries
+`metadata: {golf_coach_now: wedge_unlock}`, and the webhook ignores anything
+without it. One Stripe account can sell several things, and a webhook only says
+"something was paid for" - without the marker, a payment for some future
+unrelated product would also unlock the wedge module.
+
+**The redirect target comes from configuration, not from the request.** There is
+no way to make this service redirect somewhere of your choosing.
+
+**Rate limiting** applies to `/payments/checkout-session` and
+`/payments/unlock-status`, per client address, tunable through the environment.
+It is deliberately generous, because mobile customers share carrier addresses
+and a tight limit would turn away buyers long before it stopped abuse.
+
+The webhook is **not** rate limited, and should not be. Stripe decides when to
+send events. A 429 there becomes a retry, and an unlock delayed because we were
+throttling Stripe is worse than anything the limit would prevent.
+
+Two limits worth knowing about. Rate limit counters live in the web process, so
+running several workers multiplies the effective limit - that is the point to
+move them to Redis rather than tune them. And the client address is read from
+`X-Forwarded-For`, which is trustworthy here only because PythonAnywhere's proxy
+sets it.
 
 ## Known limitation: device IDs are not permanent
 

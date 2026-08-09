@@ -25,6 +25,10 @@ What is covered:
 - A missing Stripe variable stops startup with a message naming the variable
   and pointing at the deployment docs, and the app's deep link is rejected as
   `PUBLIC_BASE_URL`.
+- Sessions are stamped with the product marker, and a paid session without it
+  is acknowledged and ignored rather than unlocking anything.
+- Rate limiting blocks a caller who goes over, does not block anyone else, and
+  never applies to the webhook or to the success and cancel redirects.
 
 The tests build the database with the real Alembic migration rather than
 `create_all`, so the schema they run against is the schema that ships,

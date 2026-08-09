@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./payments.db"
     log_level: str = "INFO"
 
+    # Applies only to the two endpoints the app calls. Generous on purpose:
+    # mobile customers share carrier addresses, so a tight limit blocks buyers
+    # before it blocks abuse. Set rate_limit_enabled to false to turn it off
+    # without a code change.
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 30
+    rate_limit_window_seconds: int = 60
+
     @field_validator("public_base_url")
     @classmethod
     def must_be_a_web_url(cls, value: str) -> str:

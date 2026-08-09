@@ -47,6 +47,14 @@ holding them is never committed - `.gitignore` covers `.env`.
 | `CANCEL_DEEP_LINK` | `golfcoachnow://payment-cancelled` |
 | `DATABASE_URL` | See above. |
 | `LOG_LEVEL` | `INFO` is right for production. |
+| `RATE_LIMIT_ENABLED` | `true`. Set to `false` to turn limiting off without a deploy. |
+| `RATE_LIMIT_REQUESTS` | `30` per window, per client address. |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60`. |
+
+The rate limit defaults are deliberately loose. Mobile customers share carrier
+addresses, so a whole city can arrive from one, and tightening this blocks
+buyers before it blocks abuse. Raise the limit if legitimate users ever see a
+429; the counters are per web process, so several workers multiply it anyway.
 
 The app validates these at startup and exits if a required one is missing. A
 failed boot right after a deploy is the intended behaviour, and it is better
