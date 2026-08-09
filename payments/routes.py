@@ -133,7 +133,7 @@ def payment_success(
     summary="Where Stripe sends the browser if the user backs out",
 )
 def payment_cancelled() -> RedirectResponse:
-    """Stripe will not redirect to a custom scheme, so it redirects here first."""
+    """Mirrors the success route: the browser lands here, then goes to the app."""
     return RedirectResponse(settings.cancel_deep_link, status_code=SEE_OTHER)
 
 

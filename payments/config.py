@@ -33,11 +33,13 @@ class Settings(BaseSettings):
     @field_validator("public_base_url")
     @classmethod
     def must_be_a_web_url(cls, value: str) -> str:
-        """Stripe rejects anything that is not http or https for redirect URLs.
+        """This is the public origin of this service, so it has to be a web URL.
 
-        This is why the app's deep link cannot be handed to Stripe directly.
-        Checkout returns the browser to this origin, and the endpoint here
-        redirects on to the custom scheme.
+        Stripe will happily accept the app's deep link as a redirect target, so
+        it is worth being explicit about why this is not that. Checkout sends
+        the browser here first, the success endpoint confirms the payment with
+        Stripe and records the unlock, and only then is the app handed control.
+        Pointing Stripe straight at the deep link would skip all of it.
         """
         if not value.startswith(ALLOWED_URL_SCHEMES):
             raise ValueError("PUBLIC_BASE_URL must start with http:// or https://")

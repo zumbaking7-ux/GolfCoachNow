@@ -82,6 +82,18 @@ do not exist in live mode.
 In the Stripe dashboard, open the product, click **Copy to live mode**, then
 take the live price ID and set `STRIPE_PRICE_ID`.
 
+**The product needs a tax code or checkout will not work.** This account has
+Managed Payments enabled, which makes Stripe the merchant of record and handles
+tax, and it requires every product to carry an eligible tax code. Without one,
+creating a Checkout Session fails with:
+
+    Invalid line_items[0]: the product tax code is missing.
+
+The test product is set to `txcd_10103000`, "Software as a service - personal
+use", which is what a cloud service analysing an uploaded swing is. That is a
+tax classification and it belongs to whoever owns the business, so confirm it
+before going live rather than copying it because it was the default here.
+
 ### 4. Register the webhook endpoint
 
 Dashboard, Developers, Webhooks, Add endpoint.

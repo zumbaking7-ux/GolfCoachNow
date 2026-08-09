@@ -95,11 +95,24 @@ there is still one row:
 
 ## Refreshing the test fixtures
 
-`tests/fixtures/checkout_session_completed.json` mirrors the shape of a real
-`checkout.session.completed` event. Replace it with a genuinely captured
-payload rather than editing it by hand, so the suite cannot drift away from
-what Stripe actually sends.
+`tests/fixtures/checkout_session_completed.json` is a real
+`checkout.session.completed` event captured from a test payment, not a
+hand-written one. The only edited fields are the buyer's name and email,
+replaced with placeholders. Everything else is exactly what Stripe sent.
 
-To capture one, run a test payment as above with `stripe listen --print-json`,
-copy the event, and save it over the fixture file. Keep `client_reference_id`
-as `8f14e45fceea167a` or update the constants in the tests to match.
+Keep it that way. A fixture written by hand only ever matches the assumptions
+of whoever wrote it, and the suite then passes while production fails.
+
+To recapture, run a test payment as above, take the event ID from the
+`stripe listen` output, and save it:
+
+    python -c "import stripe, json; stripe.api_key=open('.env').read().split('STRIPE_SECRET_KEY=')[1].split(chr(10))[0].strip(); \
+    ev=json.loads(str(stripe.Event.retrieve('evt_XXXX'))); \
+    cd=ev['data']['object'].get('customer_details') or {}; \
+    cd.update({k: v for k, v in [('email','buyer@example.com'),('name','Test Buyer')] if cd.get(k)}); \
+    open('tests/fixtures/checkout_session_completed.json','w').write(json.dumps(ev, indent=2))"
+
+The tests read the event ID, session ID, device ID and payment intent ID out of
+the fixture, so a refresh does not mean editing every test. Amount, currency
+and email stay as explicit assertions, so if those change the tests should fail
+and make you look.

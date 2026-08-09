@@ -23,6 +23,17 @@ one, because Stripe retries it until it succeeds. The success redirect is the
 fast one, because the app needs an answer the moment the user comes back. They
 race, and the database makes sure they produce one unlock between them.
 
+## Why Stripe is not pointed straight at the app
+
+Stripe accepts `golfcoachnow://payment-success` as a `success_url`. Nothing
+stops you doing it, which is why this is written down.
+
+Doing it means nothing on the server runs when the customer comes back. No
+session is retrieved, no payment is confirmed, no unlock is recorded. The app
+would be left waiting for the webhook, and the whole point of the success
+endpoint is to have the unlock already written by the time the app regains
+control.
+
 ## Why the app does not read the result from the deep link
 
 `golfcoachnow://payment-success` can be opened by anyone, by hand, without
@@ -85,8 +96,8 @@ Query: `session_id` (Stripe substitutes it into the redirect automatically).
 ### GET /payments/cancel
 
 Where Stripe sends the browser if the user backs out. Redirects `303` to
-`golfcoachnow://payment-cancelled`. Exists because Stripe will not redirect to
-a custom scheme itself.
+`golfcoachnow://payment-cancelled`. Mirrors the success route so both outcomes
+leave Stripe the same way.
 
 ### GET /payments/unlock-status
 
