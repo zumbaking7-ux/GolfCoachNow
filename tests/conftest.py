@@ -102,12 +102,22 @@ def db_session():
 def load_event(name: str = "checkout_session_completed") -> dict:
     """Read a saved Stripe event payload.
 
-    Replace these files with payloads captured from a real test-mode payment
-    (see docs/TESTING.md) rather than editing them by hand. A fixture that
-    drifts from Stripe's real shape makes the suite pass while production
-    fails.
+    These files are captured from real test-mode payments, not written by hand.
+    The only edited field is the buyer's email and name, replaced with
+    placeholders. Everything else is exactly what Stripe sent, so the tests run
+    against the real shape of the payload rather than against assumptions about
+    it. docs/TESTING.md explains how to recapture one.
     """
     return json.loads((FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8"))
+
+
+# Identifiers taken from the fixture rather than repeated by hand, so
+# refreshing it from a newer capture does not mean editing every test.
+_FIXTURE = load_event()
+EVENT_ID = _FIXTURE["id"]
+SESSION_ID = _FIXTURE["data"]["object"]["id"]
+DEVICE_ID = _FIXTURE["data"]["object"]["client_reference_id"]
+PAYMENT_INTENT_ID = _FIXTURE["data"]["object"]["payment_intent"]
 
 
 def sign_payload(payload: bytes, secret: str = TEST_WEBHOOK_SECRET) -> str:

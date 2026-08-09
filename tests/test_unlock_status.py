@@ -4,9 +4,7 @@ The mobile app is written against this response, so the shape is part of the
 contract and is checked here rather than assumed.
 """
 
-from conftest import load_event, post_webhook
-
-DEVICE_ID = "8f14e45fceea167a"
+from conftest import DEVICE_ID, PAYMENT_INTENT_ID, SESSION_ID, load_event, post_webhook
 
 
 def test_unknown_device_is_not_unlocked(client):
@@ -55,9 +53,9 @@ def test_payment_details_are_recorded_for_support(client, db_session):
     unlock = db_session.query(Unlock).one()
 
     assert unlock.device_id == DEVICE_ID
-    assert unlock.checkout_session_id == "cs_test_a1b2c3d4e5f6"
-    assert unlock.payment_intent_id == "pi_3PxTestPaymentIntent"
-    assert unlock.amount_total == 995
+    assert unlock.checkout_session_id == SESSION_ID
+    assert unlock.payment_intent_id == PAYMENT_INTENT_ID
+    assert unlock.amount_total == 1499
     assert unlock.currency == "usd"
     assert unlock.customer_email == "buyer@example.com"
     assert unlock.status == "paid"

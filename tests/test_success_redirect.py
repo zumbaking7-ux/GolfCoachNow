@@ -6,7 +6,7 @@ the app afterwards.
 """
 
 import stripe
-from conftest import load_event, post_webhook
+from conftest import SESSION_ID, load_event, post_webhook
 from payments.models import Unlock
 
 DEEP_LINK = "golfcoachnow://payment-success"
@@ -27,7 +27,7 @@ def test_paid_session_unlocks_and_redirects_to_the_app(client, db_session, monke
     patch_retrieve(monkeypatch, paid_session())
 
     response = client.get(
-        "/payments/success?session_id=cs_test_a1b2c3d4e5f6", follow_redirects=False
+        f"/payments/success?session_id={SESSION_ID}", follow_redirects=False
     )
 
     assert response.status_code == 303
@@ -44,7 +44,7 @@ def test_unpaid_session_redirects_but_does_not_unlock(client, db_session, monkey
     patch_retrieve(monkeypatch, paid_session(payment_status="unpaid"))
 
     response = client.get(
-        "/payments/success?session_id=cs_test_a1b2c3d4e5f6", follow_redirects=False
+        f"/payments/success?session_id={SESSION_ID}", follow_redirects=False
     )
 
     assert response.status_code == 303
@@ -74,7 +74,7 @@ def test_success_redirect_then_webhook_produce_one_unlock(client, db_session, mo
     """
     patch_retrieve(monkeypatch, paid_session())
 
-    client.get("/payments/success?session_id=cs_test_a1b2c3d4e5f6", follow_redirects=False)
+    client.get(f"/payments/success?session_id={SESSION_ID}", follow_redirects=False)
     post_webhook(client, load_event())
 
     unlocks = db_session.query(Unlock).all()
@@ -87,7 +87,7 @@ def test_webhook_then_success_redirect_produce_one_unlock(client, db_session, mo
     patch_retrieve(monkeypatch, paid_session())
 
     post_webhook(client, load_event())
-    client.get("/payments/success?session_id=cs_test_a1b2c3d4e5f6", follow_redirects=False)
+    client.get(f"/payments/success?session_id={SESSION_ID}", follow_redirects=False)
 
     unlocks = db_session.query(Unlock).all()
     assert len(unlocks) == 1

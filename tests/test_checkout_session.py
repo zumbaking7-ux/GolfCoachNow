@@ -39,12 +39,13 @@ def test_device_id_is_sent_as_client_reference_id(client, monkeypatch):
     assert captured["mode"] == "payment"
 
 
-def test_redirect_urls_are_https_not_the_deep_link(client, monkeypatch):
-    """Stripe only accepts http and https for redirect URLs.
+def test_redirect_urls_point_at_this_service_not_the_app(client, monkeypatch):
+    """Stripe must return the browser here, not straight into the app.
 
-    Passing golfcoachnow:// here fails at session creation, which is why the
-    app's deep link is reached through /payments/success instead of directly.
-    This test is here so nobody "simplifies" that away later.
+    Stripe does accept a custom scheme in success_url, which makes this an easy
+    thing to "simplify" later. Doing that would skip the server entirely: no
+    confirmation with Stripe and no unlock recorded until the webhook lands,
+    which is exactly the delay this design exists to avoid.
     """
     captured = {}
 

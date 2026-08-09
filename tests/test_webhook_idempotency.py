@@ -5,7 +5,7 @@ checkout.session.completed can arrive several times. Delivery two must not
 produce unlock two.
 """
 
-from conftest import load_event, post_webhook
+from conftest import EVENT_ID, load_event, post_webhook
 from payments.models import ProcessedEvent, Unlock
 
 
@@ -30,7 +30,7 @@ def test_event_is_recorded_as_processed(client, db_session):
     post_webhook(client, load_event())
 
     processed = db_session.query(ProcessedEvent).one()
-    assert processed.stripe_event_id == "evt_1PxTestEvent0001"
+    assert processed.stripe_event_id == EVENT_ID
     assert processed.event_type == "checkout.session.completed"
     assert processed.processed_at is not None
 
@@ -44,8 +44,8 @@ def test_two_events_for_the_same_device_produce_one_unlock(client, db_session):
     """
     first_event = load_event()
     second_event = load_event()
-    second_event["id"] = "evt_1PxTestEvent0002"
-    second_event["data"]["object"]["id"] = "cs_test_second_session"
+    second_event["id"] = EVENT_ID + "_second"
+    second_event["data"]["object"]["id"] = "cs_test_a_second_session"
 
     assert post_webhook(client, first_event).status_code == 200
     assert post_webhook(client, second_event).status_code == 200
@@ -61,7 +61,7 @@ def test_unhandled_event_type_is_acknowledged_and_ignored(client, db_session):
     never going to act on.
     """
     event = load_event()
-    event["id"] = "evt_1PxSomeOtherEvent"
+    event["id"] = EVENT_ID + "_other_type"
     event["type"] = "payment_intent.succeeded"
 
     response = post_webhook(client, event)
