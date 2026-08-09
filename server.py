@@ -6,11 +6,16 @@ from pydantic import BaseModel
 from wedge import process_mobile_input, CORRECTIONS
 from video_analyzer import analyze_video, VideoAnalysisError
 
+from payments.routes import router as payments_router
+
 app = FastAPI(
     title="GolfCoachNow API",
     description="Wedge Engine — Golf Swing Correction Service",
     version="2.0.0",
 )
+
+# Stripe checkout, webhook and unlock status. See docs/PAYMENTS.md.
+app.include_router(payments_router)
 
 ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "m4v"}
 MAX_FILE_SIZE = 16 * 1024 * 1024
