@@ -14,7 +14,6 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Stripe checkout, webhook and unlock status. See docs/PAYMENTS.md.
 app.include_router(payments_router)
 
 ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "m4v"}
