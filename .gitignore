@@ -1,0 +1,23 @@
+# Xcode
+*.xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PythonAnywhere
+install_log.txt
+setup_deps.py
+.deps_installed
