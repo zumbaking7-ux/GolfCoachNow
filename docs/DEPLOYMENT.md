@@ -70,9 +70,17 @@ PythonAnywhere does not read a `.env` file for you. Either add the variables to
 the WSGI configuration file before the app is imported, or keep a `.env` beside
 the project, which `payments/config.py` picks up automatically.
 
-Then hit **Reload** on the Web tab. The settings are validated at import, so if
-a variable is missing the reload fails immediately and the error appears in the
-error log rather than surfacing later on a real payment.
+Then hit **Reload** on the Web tab.
+
+**Set the variables before you reload.** The settings are validated when the
+module is imported, which is deliberate - a payment service should not start
+half configured and discover the problem on someone's card. But it means a
+missing variable stops the whole application from starting, `/upload` and
+`/wedge` included, not just the payment routes. The error appears in the web
+app's error log as a Settings validation error naming the variable.
+
+If that happens: set the variable and reload again. Nothing is lost, and no
+payment data is affected.
 
 ### 3. Copy the product to live mode
 
@@ -172,7 +180,10 @@ in the Stripe dashboard first, by email.
        currency, customer_email, status, source, created_at)
     values
       ('<new device id>', '<cs_ from the dashboard>', '<pi_ from the dashboard>',
-       995, 'usd', '<email>', 'paid', 'manual', '2026-01-01T00:00:00');
+       1499, 'usd', '<email>', 'paid', 'manual', '2026-01-01T00:00:00');
+
+`amount_total` is in cents, so 1499 is the 14.99 price. Copy the real figure
+from the payment in the dashboard rather than assuming.
 
 Use `manual` as the source so these are easy to find later.
 

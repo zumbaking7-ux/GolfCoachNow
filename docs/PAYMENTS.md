@@ -46,6 +46,22 @@ link carries no result at all, it only tells the app to go and ask the server.
 The app must call `/payments/unlock-status` for its answer. Trusting the deep
 link would give the product away to anyone who typed the URL.
 
+## Why there is no Stripe Payment Link
+
+The original scope asked for a product, a price and a payment link. The product
+and price exist in Stripe as expected. The payment link does not, and this is
+the reason.
+
+A Payment Link is one fixed URL shared by every customer. It carries no device
+ID, so the server would have no way of knowing whose product to unlock. The ID
+can be appended to the link as a query parameter, but then it is supplied by
+whatever opens the URL rather than by the server, and one user could claim
+another user's payment by editing it.
+
+Creating the Checkout Session server-side costs one endpoint and removes that
+problem entirely. The device ID is attached before the customer ever reaches
+Stripe.
+
 ## Why the device ID is set server-side
 
 `client_reference_id` is attached when the Checkout Session is created, from
