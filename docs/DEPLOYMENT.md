@@ -72,6 +72,20 @@ From a Bash console on PythonAnywhere, in the project directory:
 Run the migration on every deploy that includes one. It is safe to run when
 there is nothing to do.
 
+**Check the payment routes actually loaded before calling a deploy finished.**
+`server.py` imports the payments package inside a `try/except ImportError`, so
+if the dependencies above are not installed the app still starts, `/upload` and
+`/wedge` work normally, and the payment routes simply are not there. Nothing
+looks wrong. Stripe's webhook gets a 404, customers pay, and no unlock is ever
+written.
+
+One request settles it:
+
+    curl "https://golfcoachnow.pythonanywhere.com/payments/unlock-status?device_id=deploy_check"
+
+A JSON body with `"unlocked": false` means the routes loaded. A 404 means the
+dependencies are missing - run the install again and reload.
+
 ### 2. Set the environment variables and reload
 
 PythonAnywhere does not read a `.env` file for you. Either add the variables to
