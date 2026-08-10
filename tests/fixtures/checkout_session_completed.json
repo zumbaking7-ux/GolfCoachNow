@@ -96,7 +96,9 @@
       "managed_payments": {
         "enabled": true
       },
-      "metadata": {},
+      "metadata": {
+        "golf_coach_now": "wedge_unlock"
+      },
       "mode": "payment",
       "object": "checkout.session",
       "origin_context": null,

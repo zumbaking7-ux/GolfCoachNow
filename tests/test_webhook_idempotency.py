@@ -87,6 +87,36 @@ def test_session_without_client_reference_id_is_not_unlocked(client, db_session)
     assert db_session.query(Unlock).count() == 0
 
 
+def test_payment_for_a_different_product_does_not_unlock(client, db_session):
+    """A paid session this service did not create must be ignored.
+
+    Their Stripe account already holds more than one product. If anything else
+    is ever sold through it and carries a client_reference_id, that buyer would
+    otherwise get a free wedge unlock.
+
+    It is acknowledged with a 200, not failed. Somebody else's payment is not
+    an error here, it is simply not ours to act on, and a 500 would put Stripe
+    into a retry loop over an event we are never going to handle.
+    """
+    event = load_event()
+    event["data"]["object"]["metadata"] = {"some_other_product": "yes"}
+
+    response = post_webhook(client, event)
+
+    assert response.status_code == 200
+    assert db_session.query(Unlock).count() == 0
+
+
+def test_session_with_no_metadata_does_not_unlock(client, db_session):
+    event = load_event()
+    event["data"]["object"]["metadata"] = {}
+
+    response = post_webhook(client, event)
+
+    assert response.status_code == 200
+    assert db_session.query(Unlock).count() == 0
+
+
 def test_unpaid_session_is_not_unlocked(client, db_session):
     """checkout.session.completed can arrive for a session that is not paid."""
     event = load_event()

@@ -47,6 +47,14 @@ holding them is never committed - `.gitignore` covers `.env`.
 | `CANCEL_DEEP_LINK` | `golfcoachnow://payment-cancelled` |
 | `DATABASE_URL` | See above. |
 | `LOG_LEVEL` | `INFO` is right for production. |
+| `RATE_LIMIT_ENABLED` | `true`. Set to `false` to turn limiting off without a deploy. |
+| `RATE_LIMIT_REQUESTS` | `30` per window, per client address. |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60`. |
+
+The rate limit defaults are deliberately loose. Mobile customers share carrier
+addresses, so a whole city can arrive from one, and tightening this blocks
+buyers before it blocks abuse. Raise the limit if legitimate users ever see a
+429; the counters are per web process, so several workers multiply it anyway.
 
 The app validates these at startup and exits if a required one is missing. A
 failed boot right after a deploy is the intended behaviour, and it is better
@@ -63,6 +71,20 @@ From a Bash console on PythonAnywhere, in the project directory:
 
 Run the migration on every deploy that includes one. It is safe to run when
 there is nothing to do.
+
+**Check the payment routes actually loaded before calling a deploy finished.**
+`server.py` imports the payments package inside a `try/except ImportError`, so
+if the dependencies above are not installed the app still starts, `/upload` and
+`/wedge` work normally, and the payment routes simply are not there. Nothing
+looks wrong. Stripe's webhook gets a 404, customers pay, and no unlock is ever
+written.
+
+One request settles it:
+
+    curl "https://golfcoachnow.pythonanywhere.com/payments/unlock-status?device_id=deploy_check"
+
+A JSON body with `"unlocked": false` means the routes loaded. A 404 means the
+dependencies are missing - run the install again and reload.
 
 ### 2. Set the environment variables and reload
 

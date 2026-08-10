@@ -103,10 +103,14 @@ def load_event(name: str = "checkout_session_completed") -> dict:
     """Read a saved Stripe event payload.
 
     These files are captured from real test-mode payments, not written by hand.
-    The only edited field is the buyer's email and name, replaced with
-    placeholders. Everything else is exactly what Stripe sent, so the tests run
-    against the real shape of the payload rather than against assumptions about
-    it. docs/TESTING.md explains how to recapture one.
+    Three fields are edited: the buyer's name and email are replaced with
+    placeholders, and `metadata` carries the product marker, which was added to
+    the code after this payment was captured. Everything else is exactly what
+    Stripe sent, so the tests run against the real shape of the payload rather
+    than against assumptions about it.
+
+    The metadata edit goes away at the next recapture. docs/TESTING.md explains
+    how to take a fresh one.
     """
     return json.loads((FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
