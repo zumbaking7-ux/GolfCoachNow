@@ -28,7 +28,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func handleDeepLink(_ url: URL) {
         guard url.scheme == "golfcoachnow" else { return }
 
-        if url.host == "payment-cancelled" {
+        switch url.host {
+        case "payment-success":
+            let alert = UIAlertController(
+                title: "Payment Successful",
+                message: "Thank you! Your full access has been unlocked.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            window?.rootViewController?.present(alert, animated: true)
+
+        case "payment-cancelled":
             let alert = UIAlertController(
                 title: "Payment Cancelled",
                 message: "Your payment was not completed. You can try again anytime.",
@@ -36,6 +46,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             )
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             window?.rootViewController?.present(alert, animated: true)
+
+        default:
+            break
         }
     }
 }

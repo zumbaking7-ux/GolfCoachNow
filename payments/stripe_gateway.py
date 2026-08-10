@@ -42,6 +42,7 @@ def create_checkout_session(device_id: str) -> stripe.checkout.Session:
         client_reference_id=device_id,
         success_url=build_success_url(),
         cancel_url=build_cancel_url(),
+        managed_payments={"enabled": False},
     )
 
 
