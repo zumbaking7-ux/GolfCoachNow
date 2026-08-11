@@ -15,7 +15,7 @@ stripe.api_key = settings.stripe_secret_key
 # the redirect. It has to be passed through exactly as written.
 CHECKOUT_SESSION_ID_TEMPLATE = "{CHECKOUT_SESSION_ID}"
 
-CHECKOUT_MODE_SUBSCRIPTION = "subscription"
+CHECKOUT_MODE_ONE_TIME = "payment"
 
 PRODUCT_MARKER_KEY = "golf_coach_now"
 PRODUCT_MARKER_VALUE = "wedge_unlock"
@@ -40,10 +40,9 @@ def create_checkout_session(device_id: str) -> stripe.checkout.Session:
     and Stripe hands it back on the webhook event.
     """
     return stripe.checkout.Session.create(
-        mode=CHECKOUT_MODE_SUBSCRIPTION,
+        mode=CHECKOUT_MODE_ONE_TIME,
         line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
         client_reference_id=device_id,
-        subscription_data={"metadata": {PRODUCT_MARKER_KEY: PRODUCT_MARKER_VALUE}},
         metadata={PRODUCT_MARKER_KEY: PRODUCT_MARKER_VALUE},
         success_url=build_success_url(),
         cancel_url=build_cancel_url(),

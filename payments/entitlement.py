@@ -1,7 +1,8 @@
 """Entitlement checks. Decides whether a device can use a module.
 
-Subscribers get unlimited access. Free users get FREE_REPS_PER_DAY per module
-per day (UTC). The daily reset happens naturally — we only count today's rows.
+Paid users (one-time unlock) get unlimited access. Free users get
+FREE_REPS_PER_DAY per module per day (UTC). The daily reset happens
+naturally — we only count today's rows.
 """
 
 from dataclasses import dataclass
@@ -11,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from payments.models import DailyUsage, FREE_REPS_PER_DAY, today_utc
-from payments.service import is_device_active
+from payments.service import find_unlock
 
 
 @dataclass(frozen=True)
@@ -24,7 +25,7 @@ class EntitlementStatus:
 
 
 def check_entitlement(session: Session, device_id: str, module: str) -> EntitlementStatus:
-    active, _ = is_device_active(session, device_id)
+    active = find_unlock(session, device_id) is not None
     if active:
         return EntitlementStatus(
             allowed=True,
@@ -47,7 +48,7 @@ def check_entitlement(session: Session, device_id: str, module: str) -> Entitlem
 
 
 def record_usage(session: Session, device_id: str, module: str) -> EntitlementStatus:
-    active, _ = is_device_active(session, device_id)
+    active = find_unlock(session, device_id) is not None
     if active:
         return EntitlementStatus(
             allowed=True,

@@ -24,12 +24,10 @@ from payments.service import (
     SOURCE_SUCCESS_REDIRECT,
     SOURCE_WEBHOOK,
     claim_event,
-    grant_subscription,
-    is_device_active,
+    find_unlock,
+    grant_unlock,
     mark_event_processed,
     read_checkout_session,
-    read_subscription_event,
-    update_subscription_status,
 )
 
 logger = get_logger("routes")
@@ -37,18 +35,8 @@ logger = get_logger("routes")
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 CHECKOUT_SESSION_COMPLETED = "checkout.session.completed"
-CUSTOMER_SUBSCRIPTION_UPDATED = "customer.subscription.updated"
-CUSTOMER_SUBSCRIPTION_DELETED = "customer.subscription.deleted"
-INVOICE_PAYMENT_SUCCEEDED = "invoice.payment_succeeded"
-INVOICE_PAYMENT_FAILED = "invoice.payment_failed"
 
-HANDLED_EVENT_TYPES = frozenset({
-    CHECKOUT_SESSION_COMPLETED,
-    CUSTOMER_SUBSCRIPTION_UPDATED,
-    CUSTOMER_SUBSCRIPTION_DELETED,
-    INVOICE_PAYMENT_SUCCEEDED,
-    INVOICE_PAYMENT_FAILED,
-})
+HANDLED_EVENT_TYPES = frozenset({CHECKOUT_SESSION_COMPLETED})
 
 SEE_OTHER = status.HTTP_303_SEE_OTHER
 STRIPE_SIGNATURE_HEADER = "stripe-signature"
@@ -57,7 +45,7 @@ STRIPE_SIGNATURE_HEADER = "stripe-signature"
 @router.post(
     "/checkout-session",
     response_model=CheckoutSessionResponse,
-    summary="Start a subscription for one device",
+    summary="Start a payment for one device",
     dependencies=[Depends(rate_limit)],
     responses={
         429: {"description": "Too many requests from this address."},
@@ -111,7 +99,7 @@ def payment_success(
 
     checkout = read_checkout_session(checkout_session)
     if checkout.can_unlock:
-        grant_subscription(db, checkout, SOURCE_SUCCESS_REDIRECT)
+        grant_unlock(db, checkout, SOURCE_SUCCESS_REDIRECT)
     else:
         logger.warning(
             "success redirect for a session that cannot be unlocked %s",
@@ -139,68 +127,19 @@ def payment_cancelled() -> RedirectResponse:
 @router.get(
     "/unlock-status",
     response_model=UnlockStatusResponse,
-    summary="Is this device's subscription active?",
+    summary="Has this device paid?",
     dependencies=[Depends(rate_limit)],
     responses={429: {"description": "Too many requests from this address."}},
 )
 def unlock_status(
     device_id: str, db: Session = Depends(get_session)
 ) -> UnlockStatusResponse:
-    active, sub = is_device_active(db, device_id)
+    unlock = find_unlock(db, device_id)
     return UnlockStatusResponse(
         device_id=device_id,
-        unlocked=active,
-        unlocked_at=sub.created_at if sub else None,
-        subscription_status=sub.status if sub else None,
-        current_period_end=sub.current_period_end if sub else None,
+        unlocked=unlock is not None,
+        unlocked_at=unlock.created_at if unlock else None,
     )
-
-
-def _handle_checkout_completed(db: Session, event_data: dict, source: str) -> None:
-    checkout = read_checkout_session(event_data)
-    if checkout.can_unlock:
-        grant_subscription(db, checkout, source)
-    else:
-        logger.warning(
-            "checkout event carried nothing to unlock %s",
-            fields(
-                paid=checkout.paid,
-                has_device_id=bool(checkout.device_id),
-                ours=checkout.is_ours,
-            ),
-        )
-
-
-def _handle_subscription_event(db: Session, event_data: dict) -> None:
-    update = read_subscription_event(event_data)
-    if not update.is_ours:
-        logger.info("subscription event not ours %s", fields(sub_id=update.stripe_subscription_id))
-        return
-    update_subscription_status(db, update)
-
-
-def _handle_invoice_event(db: Session, event_data: dict, event_type: str) -> None:
-    subscription_id = event_data.get("subscription")
-    if not subscription_id:
-        return
-    sub_status = "active" if event_type == INVOICE_PAYMENT_SUCCEEDED else "past_due"
-    from payments.service import SubscriptionUpdate, _epoch_to_datetime
-    lines = event_data.get("lines", {})
-    line_data = lines.get("data", []) if isinstance(lines, dict) else []
-    period_end = None
-    if line_data:
-        period = line_data[0].get("period", {})
-        period_end = _epoch_to_datetime(period.get("end"))
-    update = SubscriptionUpdate(
-        stripe_subscription_id=subscription_id if isinstance(subscription_id, str) else subscription_id.get("id", ""),
-        stripe_customer_id=event_data.get("customer", ""),
-        status=sub_status,
-        current_period_end=period_end,
-        device_id=None,
-        customer_email=event_data.get("customer_email"),
-        is_ours=True,
-    )
-    update_subscription_status(db, update)
 
 
 @router.post(
@@ -238,15 +177,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -
         return Response(status_code=200)
 
     try:
-        event_data = event["data"]["object"]
-
-        if event_type == CHECKOUT_SESSION_COMPLETED:
-            _handle_checkout_completed(db, event_data, SOURCE_WEBHOOK)
-        elif event_type in (CUSTOMER_SUBSCRIPTION_UPDATED, CUSTOMER_SUBSCRIPTION_DELETED):
-            _handle_subscription_event(db, event_data)
-        elif event_type in (INVOICE_PAYMENT_SUCCEEDED, INVOICE_PAYMENT_FAILED):
-            _handle_invoice_event(db, event_data, event_type)
-
+        checkout = read_checkout_session(event["data"]["object"])
+        if checkout.can_unlock:
+            grant_unlock(db, checkout, SOURCE_WEBHOOK)
+        else:
+            logger.warning(
+                "event carried nothing to unlock %s",
+                fields(
+                    event_id=event_id,
+                    paid=checkout.paid,
+                    has_device_id=bool(checkout.device_id),
+                    ours=checkout.is_ours,
+                ),
+            )
         mark_event_processed(db, claimed)
     except Exception:
         db.rollback()
