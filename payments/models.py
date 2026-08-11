@@ -1,30 +1,31 @@
 """Database tables for payments.
 
-Two tables, each with a unique constraint doing real work:
+Three tables:
 
 processed_events.stripe_event_id
     Stripe retries a webhook until it gets a 2xx, so the same event arrives
     more than once. The unique index is what makes a repeat delivery a no-op.
 
 unlocks.device_id
-    Two different code paths can unlock a device: the success redirect and the
-    webhook. They race. The unique index is what makes them converge on one row
-    instead of two.
+    Legacy one-time payment records. Kept for backward compatibility.
 
-Neither guarantee is enforced in Python. Both are enforced by the database, so
-they hold even when two requests are in flight at the same moment.
+subscriptions.device_id
+    Active subscription state per device. The unique index ensures one
+    subscription record per device.
 """
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-# Column widths. Stripe IDs are well under 255; the email limit is the RFC one.
+from datetime import date as date_type
+
 ID_LENGTH = 255
 CURRENCY_LENGTH = 8
 SOURCE_LENGTH = 32
 EMAIL_LENGTH = 320
+STATUS_LENGTH = 32
 
 
 class Base(DeclarativeBase):
@@ -36,13 +37,6 @@ def utcnow() -> datetime:
 
 
 class ProcessedEvent(Base):
-    """One row per Stripe webhook event this service has claimed.
-
-    processed_at stays NULL between claiming an event and finishing it. A row
-    with a NULL processed_at is an attempt that died partway through, and a
-    later retry is allowed to pick it up again.
-    """
-
     __tablename__ = "processed_events"
     __table_args__ = (
         UniqueConstraint("stripe_event_id", name="uq_processed_events_stripe_event_id"),
@@ -60,16 +54,6 @@ class ProcessedEvent(Base):
 
 
 class Unlock(Base):
-    """One row per device that has paid. The row existing is the unlock.
-
-    device_id is the value the app sent when the Checkout Session was created,
-    which Stripe stores and hands back as client_reference_id.
-
-    customer_email is kept for support. A device ID is not stable forever - iOS
-    changes it when the user deletes the app - so the email is the only way to
-    identify a paying customer who has lost their unlock.
-    """
-
     __tablename__ = "unlocks"
     __table_args__ = (UniqueConstraint("device_id", name="uq_unlocks_device_id"),)
 
@@ -84,4 +68,85 @@ class Unlock(Base):
     source: Mapped[str] = mapped_column(String(SOURCE_LENGTH), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint("device_id", name="uq_subscriptions_device_id"),
+        UniqueConstraint("stripe_subscription_id", name="uq_subscriptions_stripe_sub_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    stripe_customer_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    stripe_subscription_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    status: Mapped[str] = mapped_column(String(STATUS_LENGTH), nullable=False)
+    current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    customer_email: Mapped[str | None] = mapped_column(String(EMAIL_LENGTH), nullable=True)
+    source: Mapped[str] = mapped_column(String(SOURCE_LENGTH), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+MODULE_LENGTH = 32
+FREE_REPS_PER_DAY = 3
+
+
+def today_utc() -> date_type:
+    return datetime.now(timezone.utc).date()
+
+
+class DailyUsage(Base):
+    __tablename__ = "daily_usage"
+    __table_args__ = (
+        UniqueConstraint("device_id", "module", "usage_date", name="uq_daily_usage_device_module_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    module: Mapped[str] = mapped_column(String(MODULE_LENGTH), nullable=False)
+    usage_date: Mapped[date_type] = mapped_column(Date, default=today_utc, nullable=False)
+    rep_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+EVENT_NAME_LENGTH = 64
+PLATFORM_LENGTH = 16
+
+
+class AnalyticsEvent(Base):
+    __tablename__ = "analytics_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False, index=True)
+    event_name: Mapped[str] = mapped_column(String(EVENT_NAME_LENGTH), nullable=False, index=True)
+    module: Mapped[str | None] = mapped_column(String(MODULE_LENGTH), nullable=True)
+    platform: Mapped[str | None] = mapped_column(String(PLATFORM_LENGTH), nullable=True)
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
+
+
+FAULT_LENGTH = 64
+
+
+class RepResult(Base):
+    __tablename__ = "rep_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False, index=True)
+    module: Mapped[str] = mapped_column(String(MODULE_LENGTH), nullable=False, index=True)
+    dominant_fault: Mapped[str] = mapped_column(String(FAULT_LENGTH), nullable=False)
+    correction: Mapped[str] = mapped_column(Text, nullable=False)
+    scores_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
     )

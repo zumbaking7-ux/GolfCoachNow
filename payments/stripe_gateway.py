@@ -15,12 +15,8 @@ stripe.api_key = settings.stripe_secret_key
 # the redirect. It has to be passed through exactly as written.
 CHECKOUT_SESSION_ID_TEMPLATE = "{CHECKOUT_SESSION_ID}"
 
-CHECKOUT_MODE_ONE_TIME = "payment"
+CHECKOUT_MODE_SUBSCRIPTION = "subscription"
 
-# Stamped on every session this service creates, and checked again when the
-# event comes back. One Stripe account can sell more than one thing, and a
-# webhook only says "something was paid for". Without this marker, a payment
-# for some future unrelated product would also unlock the wedge module.
 PRODUCT_MARKER_KEY = "golf_coach_now"
 PRODUCT_MARKER_VALUE = "wedge_unlock"
 
@@ -44,9 +40,10 @@ def create_checkout_session(device_id: str) -> stripe.checkout.Session:
     and Stripe hands it back on the webhook event.
     """
     return stripe.checkout.Session.create(
-        mode=CHECKOUT_MODE_ONE_TIME,
+        mode=CHECKOUT_MODE_SUBSCRIPTION,
         line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
         client_reference_id=device_id,
+        subscription_data={"metadata": {PRODUCT_MARKER_KEY: PRODUCT_MARKER_VALUE}},
         metadata={PRODUCT_MARKER_KEY: PRODUCT_MARKER_VALUE},
         success_url=build_success_url(),
         cancel_url=build_cancel_url(),
@@ -60,6 +57,10 @@ def retrieve_checkout_session(session_id: str) -> stripe.checkout.Session:
     given. Anyone can open that URL; only Stripe can say whether it was paid.
     """
     return stripe.checkout.Session.retrieve(session_id)
+
+
+def retrieve_subscription(subscription_id: str) -> stripe.Subscription:
+    return stripe.Subscription.retrieve(subscription_id)
 
 
 def construct_event(payload: bytes, signature_header: str) -> stripe.Event:

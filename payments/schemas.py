@@ -46,7 +46,7 @@ class CheckoutSessionResponse(BaseModel):
 
 
 class UnlockStatusResponse(BaseModel):
-    """The authoritative answer to whether a device has paid."""
+    """The authoritative answer to whether a device has an active subscription."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -54,12 +54,20 @@ class UnlockStatusResponse(BaseModel):
                 "device_id": "8f14e45fceea167a",
                 "unlocked": True,
                 "unlocked_at": "2026-08-09T18:24:11Z",
+                "subscription_status": "active",
+                "current_period_end": "2026-09-09T18:24:11Z",
             }
         }
     )
 
     device_id: str
-    unlocked: bool = Field(description="True only when a paid payment is recorded for this device.")
+    unlocked: bool = Field(description="True when an active subscription exists for this device.")
     unlocked_at: datetime | None = Field(
-        default=None, description="When the unlock was recorded. Null when not unlocked."
+        default=None, description="When the subscription was created. Null when not subscribed."
+    )
+    subscription_status: str | None = Field(
+        default=None, description="Stripe subscription status: active, canceled, past_due, etc."
+    )
+    current_period_end: datetime | None = Field(
+        default=None, description="When the current billing period ends. Null when not subscribed."
     )

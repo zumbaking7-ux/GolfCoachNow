@@ -1,17 +1,14 @@
-"""Unlock logic. The only module that writes to the unlocks table.
+"""Subscription logic. The only module that writes to the subscriptions table.
 
-Two rules hold everything together:
+Two code paths create/update subscriptions:
+1. The success redirect (browser lands here after Stripe Checkout)
+2. The webhook (Stripe sends events for subscription lifecycle)
 
-1. A device is unlocked when a row exists in `unlocks` for it. Nothing else
-   counts, and nothing the client sends can create that row on its own.
-
-2. Both writers - the success redirect and the webhook - go through
-   `grant_unlock`, which inserts and lets the database reject the duplicate.
-   Reading first and inserting second would let two concurrent requests both
-   find an empty table and both insert.
+Both go through the same upsert functions so they converge on one row.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -19,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from payments.logging_config import fields, get_logger
-from payments.models import ProcessedEvent, Unlock, utcnow
+from payments.models import ProcessedEvent, Subscription, Unlock, utcnow
 from payments.stripe_gateway import PRODUCT_MARKER_KEY, PRODUCT_MARKER_VALUE
 
 logger = get_logger("service")
@@ -29,15 +26,11 @@ PAYMENT_STATUS_PAID = "paid"
 SOURCE_WEBHOOK = "webhook"
 SOURCE_SUCCESS_REDIRECT = "success_redirect"
 
+ACTIVE_STATUSES = frozenset({"active", "trialing"})
+
 
 @dataclass(frozen=True)
 class CheckoutDetails:
-    """The fields worth keeping from a Stripe Checkout Session.
-
-    Pulled out into a plain object so the rest of the module never has to know
-    whether it is holding a live Stripe response or a saved test payload.
-    """
-
     session_id: str
     device_id: str | None
     paid: bool
@@ -46,27 +39,26 @@ class CheckoutDetails:
     currency: str
     payment_intent_id: str | None
     customer_email: str | None
+    stripe_customer_id: str | None
+    stripe_subscription_id: str | None
 
     @property
     def can_unlock(self) -> bool:
-        """Every condition that has to hold before an unlock is written.
-
-        Kept in one place so the two callers cannot drift apart and start
-        disagreeing about what counts as a valid payment.
-        """
         return self.paid and bool(self.device_id) and self.is_ours
 
 
-def _field(source: Any, key: str) -> Any:
-    """Read one field from either a Stripe response object or a plain dict.
+@dataclass(frozen=True)
+class SubscriptionUpdate:
+    stripe_subscription_id: str
+    stripe_customer_id: str
+    status: str
+    current_period_end: datetime | None
+    device_id: str | None
+    customer_email: str | None
+    is_ours: bool
 
-    Stripe's objects support source["key"] but not source.get("key") - they are
-    not dict subclasses, and attribute lookups for anything that is not a field
-    raise AttributeError. A fixture loaded from JSON, meanwhile, is an ordinary
-    dict. Indexing with a caught KeyError is the one access pattern that
-    behaves the same on both, which is what lets the tests run the same code
-    production does.
-    """
+
+def _field(source: Any, key: str) -> Any:
     if source is None:
         return None
     try:
@@ -76,14 +68,30 @@ def _field(source: Any, key: str) -> Any:
 
 
 def _payment_intent_id(raw: Any) -> str | None:
-    """Stripe sends the payment intent as a bare ID or as a nested object."""
     if isinstance(raw, str):
         return raw
     return _field(raw, "id")
 
 
+def _subscription_id(raw: Any) -> str | None:
+    if isinstance(raw, str):
+        return raw
+    return _field(raw, "id")
+
+
+def _customer_id(raw: Any) -> str | None:
+    if isinstance(raw, str):
+        return raw
+    return _field(raw, "id")
+
+
+def _epoch_to_datetime(epoch: Any) -> datetime | None:
+    if epoch is None:
+        return None
+    return datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+
+
 def read_checkout_session(checkout_session: Any) -> CheckoutDetails:
-    """Flatten a Checkout Session into the fields this service uses."""
     customer_details = _field(checkout_session, "customer_details")
     metadata = _field(checkout_session, "metadata")
     return CheckoutDetails(
@@ -95,25 +103,128 @@ def read_checkout_session(checkout_session: Any) -> CheckoutDetails:
         currency=_field(checkout_session, "currency") or "",
         payment_intent_id=_payment_intent_id(_field(checkout_session, "payment_intent")),
         customer_email=_field(customer_details, "email"),
+        stripe_customer_id=_customer_id(_field(checkout_session, "customer")),
+        stripe_subscription_id=_subscription_id(_field(checkout_session, "subscription")),
     )
+
+
+def read_subscription_event(subscription_obj: Any) -> SubscriptionUpdate:
+    metadata = _field(subscription_obj, "metadata")
+    return SubscriptionUpdate(
+        stripe_subscription_id=_field(subscription_obj, "id") or "",
+        stripe_customer_id=_customer_id(_field(subscription_obj, "customer")) or "",
+        status=_field(subscription_obj, "status") or "",
+        current_period_end=_epoch_to_datetime(_field(subscription_obj, "current_period_end")),
+        device_id=_field(metadata, "device_id"),
+        customer_email=None,
+        is_ours=_field(metadata, PRODUCT_MARKER_KEY) == PRODUCT_MARKER_VALUE,
+    )
+
+
+def find_subscription(session: Session, device_id: str) -> Subscription | None:
+    return session.scalars(
+        select(Subscription).where(Subscription.device_id == device_id)
+    ).first()
+
+
+def find_subscription_by_stripe_id(session: Session, stripe_sub_id: str) -> Subscription | None:
+    return session.scalars(
+        select(Subscription).where(Subscription.stripe_subscription_id == stripe_sub_id)
+    ).first()
 
 
 def find_unlock(session: Session, device_id: str) -> Unlock | None:
     return session.scalars(select(Unlock).where(Unlock.device_id == device_id)).first()
 
 
+def is_device_active(session: Session, device_id: str) -> tuple[bool, Subscription | None]:
+    sub = find_subscription(session, device_id)
+    if sub and sub.status in ACTIVE_STATUSES:
+        return True, sub
+    unlock = find_unlock(session, device_id)
+    if unlock:
+        return True, None
+    return False, None
+
+
+def grant_subscription(
+    session: Session, checkout: CheckoutDetails, source: str
+) -> bool:
+    if not checkout.stripe_subscription_id:
+        logger.warning(
+            "checkout has no subscription ID %s",
+            fields(session_id=checkout.session_id),
+        )
+        return False
+
+    existing = find_subscription_by_stripe_id(session, checkout.stripe_subscription_id)
+    if existing:
+        existing.status = "active"
+        existing.updated_at = utcnow()
+        session.commit()
+        logger.info(
+            "subscription updated from checkout %s",
+            fields(device_id=existing.device_id, sub_id=checkout.stripe_subscription_id),
+        )
+        return False
+
+    sub = Subscription(
+        device_id=checkout.device_id,
+        stripe_customer_id=checkout.stripe_customer_id or "",
+        stripe_subscription_id=checkout.stripe_subscription_id,
+        status="active",
+        current_period_end=None,
+        customer_email=checkout.customer_email,
+        source=source,
+    )
+    session.add(sub)
+
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        logger.info(
+            "subscription already present %s",
+            fields(device_id=checkout.device_id, sub_id=checkout.stripe_subscription_id),
+        )
+        return False
+
+    logger.info(
+        "subscription created %s",
+        fields(device_id=checkout.device_id, sub_id=checkout.stripe_subscription_id, source=source),
+    )
+    return True
+
+
+def update_subscription_status(
+    session: Session, update: SubscriptionUpdate
+) -> bool:
+    sub = find_subscription_by_stripe_id(session, update.stripe_subscription_id)
+    if not sub:
+        logger.warning(
+            "subscription not found for update %s",
+            fields(sub_id=update.stripe_subscription_id, status=update.status),
+        )
+        return False
+
+    sub.status = update.status
+    if update.current_period_end:
+        sub.current_period_end = update.current_period_end
+    sub.updated_at = utcnow()
+    session.commit()
+
+    logger.info(
+        "subscription status updated %s",
+        fields(
+            device_id=sub.device_id,
+            sub_id=update.stripe_subscription_id,
+            status=update.status,
+        ),
+    )
+    return True
+
+
 def grant_unlock(session: Session, checkout: CheckoutDetails, source: str) -> bool:
-    """Record the unlock for a paid checkout.
-
-    Returns True when this call created the row and False when it was already
-    there. Callers use that to decide what to log, not to decide whether the
-    device is unlocked - either way, it is.
-
-    The insert runs unconditionally. If a concurrent request gets there first,
-    the unique index on device_id raises IntegrityError and this call reports
-    the row as pre-existing. The database makes that decision while holding a
-    lock, which is why it is safe and a read-then-write would not be.
-    """
     if not checkout.paid:
         raise ValueError(f"refusing to unlock an unpaid session {checkout.session_id}")
     if not checkout.device_id:
@@ -152,19 +263,6 @@ def grant_unlock(session: Session, checkout: CheckoutDetails, source: str) -> bo
 
 
 def claim_event(session: Session, event_id: str, event_type: str) -> ProcessedEvent | None:
-    """Take ownership of a webhook event before doing any work for it.
-
-    Returns the row to work on, or None when there is nothing left to do.
-
-    Three cases, in the order they are checked:
-
-    - A row exists and has a processed_at: a previous delivery finished this
-      event. Nothing to do.
-    - A row exists with processed_at still NULL: an earlier attempt claimed the
-      event and then died. Hand it back so this delivery can finish the job.
-    - No row: insert one. If a concurrent delivery inserts first, the unique
-      index on stripe_event_id rejects this one and that other request owns it.
-    """
     existing = session.scalars(
         select(ProcessedEvent).where(ProcessedEvent.stripe_event_id == event_id)
     ).first()

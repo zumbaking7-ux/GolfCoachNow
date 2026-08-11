@@ -24,10 +24,12 @@ from payments.service import (
     SOURCE_SUCCESS_REDIRECT,
     SOURCE_WEBHOOK,
     claim_event,
-    find_unlock,
-    grant_unlock,
+    grant_subscription,
+    is_device_active,
     mark_event_processed,
     read_checkout_session,
+    read_subscription_event,
+    update_subscription_status,
 )
 
 logger = get_logger("routes")
@@ -35,10 +37,18 @@ logger = get_logger("routes")
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 CHECKOUT_SESSION_COMPLETED = "checkout.session.completed"
+CUSTOMER_SUBSCRIPTION_UPDATED = "customer.subscription.updated"
+CUSTOMER_SUBSCRIPTION_DELETED = "customer.subscription.deleted"
+INVOICE_PAYMENT_SUCCEEDED = "invoice.payment_succeeded"
+INVOICE_PAYMENT_FAILED = "invoice.payment_failed"
 
-# Stripe is told to send only this event type. Anything else that arrives is
-# acknowledged and ignored, which is how you stop Stripe resending it.
-HANDLED_EVENT_TYPES = frozenset({CHECKOUT_SESSION_COMPLETED})
+HANDLED_EVENT_TYPES = frozenset({
+    CHECKOUT_SESSION_COMPLETED,
+    CUSTOMER_SUBSCRIPTION_UPDATED,
+    CUSTOMER_SUBSCRIPTION_DELETED,
+    INVOICE_PAYMENT_SUCCEEDED,
+    INVOICE_PAYMENT_FAILED,
+})
 
 SEE_OTHER = status.HTTP_303_SEE_OTHER
 STRIPE_SIGNATURE_HEADER = "stripe-signature"
@@ -47,7 +57,7 @@ STRIPE_SIGNATURE_HEADER = "stripe-signature"
 @router.post(
     "/checkout-session",
     response_model=CheckoutSessionResponse,
-    summary="Start a payment for one device",
+    summary="Start a subscription for one device",
     dependencies=[Depends(rate_limit)],
     responses={
         429: {"description": "Too many requests from this address."},
@@ -55,12 +65,6 @@ STRIPE_SIGNATURE_HEADER = "stripe-signature"
     },
 )
 def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionResponse:
-    """Create a Checkout Session bound to the calling device.
-
-    The device ID is stored on the session as client_reference_id. That is the
-    only link between the payment and the device, and it is set here rather
-    than sent by the browser so the client cannot choose it later.
-    """
     try:
         checkout_session = stripe_gateway.create_checkout_session(payload.device_id)
     except stripe.StripeError as error:
@@ -93,16 +97,6 @@ def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionRes
 def payment_success(
     session_id: str, db: Session = Depends(get_session)
 ) -> RedirectResponse:
-    """Confirm the payment with Stripe, record the unlock, then hand off to the app.
-
-    Being called proves nothing - anyone can open this URL with any session ID.
-    The unlock is written only because Stripe, asked directly, says the session
-    is paid.
-
-    The redirect happens either way. The app does not read its unlock state
-    from the deep link, it asks /unlock-status, so there is nothing to gain by
-    sending different links for paid and unpaid.
-    """
     try:
         checkout_session = stripe_gateway.retrieve_checkout_session(session_id)
     except stripe.InvalidRequestError as error:
@@ -117,7 +111,7 @@ def payment_success(
 
     checkout = read_checkout_session(checkout_session)
     if checkout.can_unlock:
-        grant_unlock(db, checkout, SOURCE_SUCCESS_REDIRECT)
+        grant_subscription(db, checkout, SOURCE_SUCCESS_REDIRECT)
     else:
         logger.warning(
             "success redirect for a session that cannot be unlocked %s",
@@ -139,31 +133,74 @@ def payment_success(
     summary="Where Stripe sends the browser if the user backs out",
 )
 def payment_cancelled() -> RedirectResponse:
-    """Mirrors the success route: the browser lands here, then goes to the app."""
     return RedirectResponse(settings.cancel_deep_link, status_code=SEE_OTHER)
 
 
 @router.get(
     "/unlock-status",
     response_model=UnlockStatusResponse,
-    summary="Has this device paid?",
+    summary="Is this device's subscription active?",
     dependencies=[Depends(rate_limit)],
     responses={429: {"description": "Too many requests from this address."}},
 )
 def unlock_status(
     device_id: str, db: Session = Depends(get_session)
 ) -> UnlockStatusResponse:
-    """The app's source of truth, called on launch and after the deep link.
-
-    Always answers, including for devices that have never paid, so the app does
-    not have to treat "no" as an error.
-    """
-    unlock = find_unlock(db, device_id)
+    active, sub = is_device_active(db, device_id)
     return UnlockStatusResponse(
         device_id=device_id,
-        unlocked=unlock is not None,
-        unlocked_at=unlock.created_at if unlock else None,
+        unlocked=active,
+        unlocked_at=sub.created_at if sub else None,
+        subscription_status=sub.status if sub else None,
+        current_period_end=sub.current_period_end if sub else None,
     )
+
+
+def _handle_checkout_completed(db: Session, event_data: dict, source: str) -> None:
+    checkout = read_checkout_session(event_data)
+    if checkout.can_unlock:
+        grant_subscription(db, checkout, source)
+    else:
+        logger.warning(
+            "checkout event carried nothing to unlock %s",
+            fields(
+                paid=checkout.paid,
+                has_device_id=bool(checkout.device_id),
+                ours=checkout.is_ours,
+            ),
+        )
+
+
+def _handle_subscription_event(db: Session, event_data: dict) -> None:
+    update = read_subscription_event(event_data)
+    if not update.is_ours:
+        logger.info("subscription event not ours %s", fields(sub_id=update.stripe_subscription_id))
+        return
+    update_subscription_status(db, update)
+
+
+def _handle_invoice_event(db: Session, event_data: dict, event_type: str) -> None:
+    subscription_id = event_data.get("subscription")
+    if not subscription_id:
+        return
+    sub_status = "active" if event_type == INVOICE_PAYMENT_SUCCEEDED else "past_due"
+    from payments.service import SubscriptionUpdate, _epoch_to_datetime
+    lines = event_data.get("lines", {})
+    line_data = lines.get("data", []) if isinstance(lines, dict) else []
+    period_end = None
+    if line_data:
+        period = line_data[0].get("period", {})
+        period_end = _epoch_to_datetime(period.get("end"))
+    update = SubscriptionUpdate(
+        stripe_subscription_id=subscription_id if isinstance(subscription_id, str) else subscription_id.get("id", ""),
+        stripe_customer_id=event_data.get("customer", ""),
+        status=sub_status,
+        current_period_end=period_end,
+        device_id=None,
+        customer_email=event_data.get("customer_email"),
+        is_ours=True,
+    )
+    update_subscription_status(db, update)
 
 
 @router.post(
@@ -176,19 +213,6 @@ def unlock_status(
     },
 )
 async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -> Response:
-    """Receive an event from Stripe and unlock the device it belongs to.
-
-    The status code is the reply to Stripe about whether to send this event
-    again, so each return below is a deliberate instruction:
-
-    400  the signature failed, so this did not come from Stripe. No retry.
-    200  handled, already handled, or an event type we do not care about.
-    500  we should have handled it and could not. Please retry.
-
-    This is `async def` on purpose. Signature verification needs the exact
-    bytes of the body, and `await request.body()` is how to get them before
-    anything parses the JSON.
-    """
     payload = await request.body()
     signature = request.headers.get(STRIPE_SIGNATURE_HEADER, "")
 
@@ -214,26 +238,18 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -
         return Response(status_code=200)
 
     try:
-        checkout = read_checkout_session(event["data"]["object"])
-        if checkout.can_unlock:
-            grant_unlock(db, checkout, SOURCE_WEBHOOK)
-        else:
-            # Acknowledged rather than failed. A payment for something else
-            # sold through the same Stripe account is not an error here, it
-            # just is not ours to act on.
-            logger.warning(
-                "event carried nothing to unlock %s",
-                fields(
-                    event_id=event_id,
-                    paid=checkout.paid,
-                    has_device_id=bool(checkout.device_id),
-                    ours=checkout.is_ours,
-                ),
-            )
+        event_data = event["data"]["object"]
+
+        if event_type == CHECKOUT_SESSION_COMPLETED:
+            _handle_checkout_completed(db, event_data, SOURCE_WEBHOOK)
+        elif event_type in (CUSTOMER_SUBSCRIPTION_UPDATED, CUSTOMER_SUBSCRIPTION_DELETED):
+            _handle_subscription_event(db, event_data)
+        elif event_type in (INVOICE_PAYMENT_SUCCEEDED, INVOICE_PAYMENT_FAILED):
+            _handle_invoice_event(db, event_data, event_type)
+
         mark_event_processed(db, claimed)
     except Exception:
         db.rollback()
-        # processed_at stays NULL, so Stripe's retry picks the event back up.
         logger.exception("failed to process event %s", fields(event_id=event_id))
         return Response(status_code=500)
 
