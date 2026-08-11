@@ -57,6 +57,8 @@
 	<key>NSCameraUsageDescription</key>
 	<string>GolfCoachNow needs camera access to record your golf swing for analysis.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>GolfCoachNow needs microphone access to record audio with your swing video.</string>
+	<string>GolfCoachNow needs microphone access to record audio with your swing video and for Talk Mode voice coaching.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>GolfCoachNow uses speech recognition for Talk Mode to understand your swing descriptions and provide voice coaching.</string>
 </dict>
 </plist>

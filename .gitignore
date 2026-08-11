@@ -23,6 +23,14 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.apk
+*.aab
+
 # PythonAnywhere
 install_log.txt
 setup_deps.py

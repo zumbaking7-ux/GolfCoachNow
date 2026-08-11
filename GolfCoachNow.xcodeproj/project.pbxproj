@@ -15,6 +15,12 @@
 		A10006 /* CameraViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
 		A10007 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B10007; };
 		A10008 /* SwingAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
+		A10009 /* GolfModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
+		A10010 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
+		A10011 /* EntitlementManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013; };
+		A10012 /* PaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
+		A10013 /* PaymentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
+		A10014 /* TalkModeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10016; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +34,12 @@
 		B10008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10009 /* GolfCoachNow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GolfCoachNow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10010 /* SwingAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwingAnalyzer.swift; sourceTree = "<group>"; };
+		B10011 /* GolfModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfModule.swift; sourceTree = "<group>"; };
+		B10012 /* HomeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewController.swift; sourceTree = "<group>"; };
+		B10013 /* EntitlementManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementManager.swift; sourceTree = "<group>"; };
+		B10014 /* PaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallViewController.swift; sourceTree = "<group>"; };
+		B10015 /* PaymentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentModels.swift; sourceTree = "<group>"; };
+		B10016 /* TalkModeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkModeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,6 +105,9 @@
 			children = (
 				B10005 /* CorrectionResponse.swift */,
 				B10010 /* SwingAnalyzer.swift */,
+				B10011 /* GolfModule.swift */,
+				B10013 /* EntitlementManager.swift */,
+				B10015 /* PaymentModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -101,6 +116,9 @@
 			isa = PBXGroup;
 			children = (
 				B10006 /* CameraViewController.swift */,
+				B10012 /* HomeViewController.swift */,
+				B10014 /* PaywallViewController.swift */,
+				B10016 /* TalkModeViewController.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -189,6 +207,12 @@
 				A10005 /* CorrectionResponse.swift in Sources */,
 				A10006 /* CameraViewController.swift in Sources */,
 				A10008 /* SwingAnalyzer.swift in Sources */,
+				A10009 /* GolfModule.swift in Sources */,
+				A10010 /* HomeViewController.swift in Sources */,
+				A10011 /* EntitlementManager.swift in Sources */,
+				A10012 /* PaywallViewController.swift in Sources */,
+				A10013 /* PaymentModels.swift in Sources */,
+				A10014 /* TalkModeViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

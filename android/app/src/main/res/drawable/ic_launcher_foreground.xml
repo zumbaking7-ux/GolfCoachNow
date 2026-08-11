@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Golf ball circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"/>
+    <!-- Golf ball dimples -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M54,42a2,2 0,1 0,0.01 0zM48,48a2,2 0,1 0,0.01 0zM60,48a2,2 0,1 0,0.01 0zM51,54a2,2 0,1 0,0.01 0zM57,54a2,2 0,1 0,0.01 0zM48,60a2,2 0,1 0,0.01 0zM60,60a2,2 0,1 0,0.01 0zM54,66a2,2 0,1 0,0.01 0z"/>
+</vector>

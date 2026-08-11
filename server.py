@@ -9,6 +9,7 @@ from wedge import process_mobile_input as wedge_process, CORRECTIONS as WEDGE_CO
 from putt import process_mobile_input as putt_process, CORRECTIONS as PUTT_CORRECTIONS
 from chip import process_mobile_input as chip_process, CORRECTIONS as CHIP_CORRECTIONS
 from video_analyzer import analyze_video, VideoAnalysisError
+from talk import process_talk
 
 try:
     from payments.routes import router as payments_router
@@ -45,6 +46,12 @@ MAX_FILE_SIZE = 16 * 1024 * 1024
 
 class SwingData(BaseModel):
     data: dict
+    device_id: str = ""
+
+
+class TalkRequest(BaseModel):
+    text: str
+    module: str = "swing"
     device_id: str = ""
 
 
@@ -197,6 +204,14 @@ def run_short_game(swing: SwingData):
     result = chip_process(swing.data)
     _save_result(swing.device_id, "short_game", result)
     return result
+
+
+@app.post("/talk")
+def talk_mode(req: TalkRequest):
+    if req.module not in VALID_MODULES:
+        raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
+    _check_and_record(req.device_id, req.module)
+    return process_talk(req.text, req.module)
 
 
 @app.post("/analytics/event")

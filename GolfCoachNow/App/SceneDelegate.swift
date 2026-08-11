@@ -11,9 +11,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = CameraViewController()
+        let nav = UINavigationController(rootViewController: HomeViewController())
+        nav.setNavigationBarHidden(true, animated: false)
+        window.rootViewController = nav
         window.makeKeyAndVisible()
         self.window = window
+
+        EntitlementManager.shared.checkRemoteStatus()
 
         if let url = connectionOptions.urlContexts.first?.url {
             handleDeepLink(url)
@@ -30,25 +34,41 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         switch url.host {
         case "payment-success":
-            let alert = UIAlertController(
+            EntitlementManager.shared.markUnlocked()
+            dismissPresentedThenShow(
                 title: "Payment Successful",
-                message: "Thank you! Your full access has been unlocked.",
-                preferredStyle: .alert
+                message: "Thank you! Your full access has been unlocked."
             )
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            window?.rootViewController?.present(alert, animated: true)
 
         case "payment-cancelled":
-            let alert = UIAlertController(
+            dismissPresentedThenShow(
                 title: "Payment Cancelled",
-                message: "Your payment was not completed. You can try again anytime.",
-                preferredStyle: .alert
+                message: "Your payment was not completed. You can try again anytime."
             )
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            window?.rootViewController?.present(alert, animated: true)
 
         default:
             break
+        }
+    }
+
+    private func dismissPresentedThenShow(title: String, message: String) {
+        guard let root = window?.rootViewController else { return }
+
+        let show = {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+            var presenter: UIViewController = root
+            while let next = presenter.presentedViewController {
+                presenter = next
+            }
+            presenter.present(alert, animated: true)
+        }
+
+        if root.presentedViewController != nil {
+            root.dismiss(animated: false) { show() }
+        } else {
+            show()
         }
     }
 }

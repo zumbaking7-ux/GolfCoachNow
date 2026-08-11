@@ -1,0 +1,3 @@
+-keep class com.golfcoachnow.app.data.model.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**

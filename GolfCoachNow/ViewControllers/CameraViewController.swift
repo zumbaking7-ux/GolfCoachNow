@@ -3,12 +3,24 @@ import AVFoundation
 
 final class CameraViewController: UIViewController {
 
+    private let module: GolfModule
+
     #if !targetEnvironment(simulator)
     private let cameraManager = CameraManager()
     #endif
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var recordingTimer: Timer?
     private var recordingSeconds = 0
+
+    init(module: GolfModule = .swing) {
+        self.module = module
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        self.module = .swing
+        super.init(coder: coder)
+    }
 
     // MARK: - UI Elements
 
@@ -31,6 +43,29 @@ final class CameraViewController: UIViewController {
         btn.backgroundColor = UIColor.black.withAlphaComponent(0.4)
         btn.layer.cornerRadius = 22
         return btn
+    }()
+
+    private let backButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        btn.tintColor = .white
+        btn.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+        btn.layer.cornerRadius = 20
+        return btn
+    }()
+
+    private let moduleBadge: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.8)
+        label.layer.cornerRadius = 12
+        label.layer.masksToBounds = true
+        return label
     }()
 
     private let timerLabel: UILabel = {
@@ -93,6 +128,28 @@ final class CameraViewController: UIViewController {
         return label
     }()
 
+    private let shareButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        btn.setImage(UIImage(systemName: "square.and.arrow.up", withConfiguration: config), for: .normal)
+        btn.setTitle(" Share", for: .normal)
+        btn.tintColor = .systemGreen
+        btn.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        return btn
+    }()
+
+    private let talkButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        btn.setImage(UIImage(systemName: "waveform", withConfiguration: config), for: .normal)
+        btn.tintColor = .black
+        btn.backgroundColor = .systemGreen
+        btn.layer.cornerRadius = 22
+        return btn
+    }()
+
     private let statusLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -108,6 +165,8 @@ final class CameraViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        moduleBadge.text = "  \(module.title)  "
         setupUI()
         #if targetEnvironment(simulator)
         statusLabel.text = "Tap record to test API"
@@ -136,7 +195,12 @@ final class CameraViewController: UIViewController {
 
         correctionCard.addSubview(faultLabel)
         correctionCard.addSubview(correctionLabel)
+        correctionCard.addSubview(shareButton)
 
+        shareButton.addTarget(self, action: #selector(shareTapped), for: .touchUpInside)
+
+        view.addSubview(backButton)
+        view.addSubview(moduleBadge)
         view.addSubview(repLabel)
         view.addSubview(recordingDot)
         view.addSubview(timerLabel)
@@ -144,12 +208,24 @@ final class CameraViewController: UIViewController {
         view.addSubview(statusLabel)
         view.addSubview(recordButton)
         view.addSubview(flipButton)
+        view.addSubview(talkButton)
 
         recordButton.addTarget(self, action: #selector(recordTapped), for: .touchUpInside)
         flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        talkButton.addTarget(self, action: #selector(talkTapped), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
-            repLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+
+            moduleBadge.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            moduleBadge.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            moduleBadge.heightAnchor.constraint(equalToConstant: 28),
+
+            repLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 16),
             repLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 
             recordingDot.centerYAnchor.constraint(equalTo: repLabel.centerYAnchor),
@@ -171,7 +247,10 @@ final class CameraViewController: UIViewController {
             correctionLabel.topAnchor.constraint(equalTo: faultLabel.bottomAnchor, constant: 6),
             correctionLabel.leadingAnchor.constraint(equalTo: correctionCard.leadingAnchor, constant: 14),
             correctionLabel.trailingAnchor.constraint(equalTo: correctionCard.trailingAnchor, constant: -14),
-            correctionLabel.bottomAnchor.constraint(equalTo: correctionCard.bottomAnchor, constant: -12),
+
+            shareButton.topAnchor.constraint(equalTo: correctionLabel.bottomAnchor, constant: 10),
+            shareButton.trailingAnchor.constraint(equalTo: correctionCard.trailingAnchor, constant: -14),
+            shareButton.bottomAnchor.constraint(equalTo: correctionCard.bottomAnchor, constant: -10),
 
             statusLabel.bottomAnchor.constraint(equalTo: recordButton.topAnchor, constant: -16),
             statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -185,6 +264,11 @@ final class CameraViewController: UIViewController {
             flipButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             flipButton.widthAnchor.constraint(equalToConstant: 44),
             flipButton.heightAnchor.constraint(equalToConstant: 44),
+
+            talkButton.centerYAnchor.constraint(equalTo: recordButton.centerYAnchor),
+            talkButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            talkButton.widthAnchor.constraint(equalToConstant: 44),
+            talkButton.heightAnchor.constraint(equalToConstant: 44),
         ])
     }
 
@@ -259,6 +343,29 @@ final class CameraViewController: UIViewController {
         #endif
     }
 
+    @objc private func shareTapped() {
+        let fault = faultLabel.text ?? ""
+        let correction = correctionLabel.text ?? ""
+        let text = "GolfCoachNow — \(module.title)\n\nFault: \(fault)\n\(correction)"
+
+        let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        activityVC.popoverPresentationController?.sourceView = shareButton
+        present(activityVC, animated: true)
+    }
+
+    @objc private func talkTapped() {
+        let talkVC = TalkModeViewController(module: module)
+        talkVC.modalPresentationStyle = .fullScreen
+        present(talkVC, animated: true)
+    }
+
+    @objc private func backTapped() {
+        #if !targetEnvironment(simulator)
+        cameraManager.stopSession()
+        #endif
+        navigationController?.popViewController(animated: true)
+    }
+
     // MARK: - Recording UI State
 
     private func startRecordingUI() {
@@ -267,6 +374,8 @@ final class CameraViewController: UIViewController {
         timerLabel.isHidden = false
         recordingDot.isHidden = false
         flipButton.isHidden = true
+        backButton.isHidden = true
+        talkButton.isHidden = true
         statusLabel.text = ""
         correctionCard.isHidden = true
 
@@ -289,6 +398,8 @@ final class CameraViewController: UIViewController {
         recordingDot.isHidden = true
         recordingDot.layer.removeAllAnimations()
         flipButton.isHidden = false
+        backButton.isHidden = false
+        talkButton.isHidden = false
         statusLabel.text = "Processing..."
 
         animateRecordButton(recording: false)
@@ -323,9 +434,9 @@ final class CameraViewController: UIViewController {
         }
 
         #if targetEnvironment(simulator)
-        DispatchQueue.main.async { self.statusLabel.text = "Analyzing swing..." }
-        let scores = SwingAnalyzer.analyze()
-        APIClient.shared.sendSwingData(scores) { [weak self] result in
+        DispatchQueue.main.async { self.statusLabel.text = "Analyzing \(self.module.title.lowercased())..." }
+        let scores = SwingAnalyzer.analyze(module: module)
+        APIClient.shared.sendModuleData(scores, module: module) { [weak self] result in
             DispatchQueue.main.async {
                 self?.recordButton.isEnabled = true
                 self?.recordButton.alpha = 1.0
@@ -337,7 +448,7 @@ final class CameraViewController: UIViewController {
         }
         #else
         DispatchQueue.main.async { self.statusLabel.text = "Uploading & analyzing..." }
-        APIClient.shared.uploadVideo(fileURL: videoURL) { [weak self] result in
+        APIClient.shared.uploadVideo(fileURL: videoURL, module: module) { [weak self] result in
             try? FileManager.default.removeItem(at: videoURL)
             DispatchQueue.main.async {
                 self?.recordButton.isEnabled = true
@@ -377,6 +488,12 @@ final class CameraViewController: UIViewController {
 
     private func showError(_ error: Error) {
         statusLabel.text = ""
+
+        if case APIError.requestFailed(statusCode: 403) = error {
+            showPaywall()
+            return
+        }
+
         let alert = UIAlertController(
             title: "Error",
             message: error.localizedDescription,
@@ -384,6 +501,12 @@ final class CameraViewController: UIViewController {
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func showPaywall() {
+        let paywall = PaywallViewController()
+        paywall.modalPresentationStyle = .fullScreen
+        present(paywall, animated: true)
     }
 }
 
