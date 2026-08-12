@@ -58,6 +58,16 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         return v
     }()
 
+    private let accountButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        btn.backgroundColor = UIColor(red: 0.14, green: 0.14, blue: 0.18, alpha: 1.0)
+        btn.layer.cornerRadius = 12
+        btn.contentEdgeInsets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+        return btn
+    }()
+
     private let contactButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -76,6 +86,16 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         view.backgroundColor = UIColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 1.0)
         navigationController?.setNavigationBarHidden(true, animated: false)
         setupUI()
+        updateAccountButton()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(authStateChanged),
+            name: .authStateDidChange, object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -128,9 +148,12 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             contentStack.addArrangedSubview(card)
         }
 
+        accountButton.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
+        contentStack.addArrangedSubview(accountButton)
+        contentStack.setCustomSpacing(24, after: contentStack.arrangedSubviews[contentStack.arrangedSubviews.count - 2])
+
         contactButton.addTarget(self, action: #selector(contactTapped), for: .touchUpInside)
         contentStack.addArrangedSubview(contactButton)
-        contentStack.setCustomSpacing(24, after: contentStack.arrangedSubviews[contentStack.arrangedSubviews.count - 2])
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -144,6 +167,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -32),
             contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -40),
 
+            accountButton.heightAnchor.constraint(equalToConstant: 48),
             contactButton.heightAnchor.constraint(equalToConstant: 44),
         ])
 
@@ -249,6 +273,46 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         card.isUserInteractionEnabled = true
 
         return card
+    }
+
+    @objc private func accountTapped() {
+        if AuthManager.shared.isSignedIn {
+            showAccountMenu()
+        } else {
+            let loginVC = LoginViewController()
+            loginVC.modalPresentationStyle = .fullScreen
+            present(loginVC, animated: true)
+        }
+    }
+
+    @objc private func authStateChanged() {
+        updateAccountButton()
+    }
+
+    private func updateAccountButton() {
+        if let email = AuthManager.shared.email, AuthManager.shared.isSignedIn {
+            accountButton.setTitle("  \(email)", for: .normal)
+            accountButton.setTitleColor(.white, for: .normal)
+            let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+            accountButton.setImage(UIImage(systemName: "person.crop.circle.fill", withConfiguration: config), for: .normal)
+            accountButton.tintColor = .systemGreen
+        } else {
+            accountButton.setTitle("  Sign In", for: .normal)
+            accountButton.setTitleColor(.systemGreen, for: .normal)
+            let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+            accountButton.setImage(UIImage(systemName: "person.crop.circle", withConfiguration: config), for: .normal)
+            accountButton.tintColor = .systemGreen
+        }
+    }
+
+    private func showAccountMenu() {
+        let sheet = UIAlertController(title: AuthManager.shared.email, message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Sign Out", style: .destructive) { _ in
+            APIClient.shared.signOut { _ in }
+            AuthManager.shared.signOut()
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
     }
 
     @objc private func moduleTapped(_ gesture: ModuleTapGesture) {

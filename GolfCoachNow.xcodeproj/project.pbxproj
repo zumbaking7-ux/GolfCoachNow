@@ -21,6 +21,9 @@
 		A10012 /* PaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
 		A10013 /* PaymentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
 		A10014 /* TalkModeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10016; };
+		A10015 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
+		A10016 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
+		A10017 /* VerifyCodeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +43,9 @@
 		B10014 /* PaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallViewController.swift; sourceTree = "<group>"; };
 		B10015 /* PaymentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentModels.swift; sourceTree = "<group>"; };
 		B10016 /* TalkModeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkModeViewController.swift; sourceTree = "<group>"; };
+		B10017 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		B10018 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
+		B10019 /* VerifyCodeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifyCodeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +114,7 @@
 				B10011 /* GolfModule.swift */,
 				B10013 /* EntitlementManager.swift */,
 				B10015 /* PaymentModels.swift */,
+				B10017 /* AuthManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -119,6 +126,8 @@
 				B10012 /* HomeViewController.swift */,
 				B10014 /* PaywallViewController.swift */,
 				B10016 /* TalkModeViewController.swift */,
+				B10018 /* LoginViewController.swift */,
+				B10019 /* VerifyCodeViewController.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -213,6 +222,9 @@
 				A10012 /* PaywallViewController.swift in Sources */,
 				A10013 /* PaymentModels.swift in Sources */,
 				A10014 /* TalkModeViewController.swift in Sources */,
+				A10015 /* AuthManager.swift in Sources */,
+				A10016 /* LoginViewController.swift in Sources */,
+				A10017 /* VerifyCodeViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

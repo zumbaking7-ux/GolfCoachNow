@@ -152,6 +152,95 @@ final class APIClient {
         }.resume()
     }
 
+    // MARK: - Auth
+
+    func requestLoginCode(email: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let url = URL(string: APIConfig.baseURL + "/auth/request-code") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "device_id": EntitlementManager.shared.deviceId,
+        ])
+
+        session.dataTask(with: request) { _, response, error in
+            if let error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse else {
+                completion(.failure(APIError.invalidResponse)); return
+            }
+            if http.statusCode == 202 || http.statusCode == 200 {
+                completion(.success(()))
+            } else if http.statusCode == 429 {
+                completion(.failure(APIError.requestFailed(statusCode: 429)))
+            } else {
+                completion(.failure(APIError.requestFailed(statusCode: http.statusCode)))
+            }
+        }.resume()
+    }
+
+    func verifyLoginCode(email: String, code: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: APIConfig.baseURL + "/auth/verify-code") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "code": code,
+            "device_id": EntitlementManager.shared.deviceId,
+        ])
+
+        session.dataTask(with: request) { data, response, error in
+            if let error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse, let data else {
+                completion(.failure(APIError.invalidResponse)); return
+            }
+            if http.statusCode == 200 {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let token = json["token"] as? String {
+                    completion(.success(token))
+                } else {
+                    completion(.failure(APIError.invalidResponse))
+                }
+            } else {
+                completion(.failure(APIError.requestFailed(statusCode: http.statusCode)))
+            }
+        }.resume()
+    }
+
+    func signOut(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let url = URL(string: APIConfig.baseURL + "/auth/sign-out") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        if let token = AuthManager.shared.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        session.dataTask(with: request) { _, response, error in
+            if let error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse else {
+                completion(.failure(APIError.invalidResponse)); return
+            }
+            if (200...299).contains(http.statusCode) {
+                completion(.success(()))
+            } else {
+                completion(.failure(APIError.requestFailed(statusCode: http.statusCode)))
+            }
+        }.resume()
+    }
+
     // MARK: - Payments
 
     func createCheckoutSession(deviceId: String, completion: @escaping (Result<CheckoutResponse, Error>) -> Void) {
@@ -182,7 +271,12 @@ final class APIClient {
             return
         }
 
-        session.dataTask(with: URLRequest(url: url)) { data, response, error in
+        var request = URLRequest(url: url)
+        if let token = AuthManager.shared.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        session.dataTask(with: request) { data, response, error in
             self.handleDecodable(data: data, response: response, error: error, completion: completion)
         }.resume()
     }
