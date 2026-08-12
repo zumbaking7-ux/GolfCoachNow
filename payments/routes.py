@@ -31,14 +31,19 @@ from payments.service import (
     mark_event_processed,
     read_checkout_session,
 )
+from payments.subscriptions import read_invoice_event, read_subscription_event
 
 logger = get_logger("routes")
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 CHECKOUT_SESSION_COMPLETED = "checkout.session.completed"
+INVOICE_PAID = "invoice.paid"
+INVOICE_PAYMENT_FAILED = "invoice.payment_failed"
+SUBSCRIPTION_UPDATED = "customer.subscription.updated"
+SUBSCRIPTION_DELETED = "customer.subscription.deleted"
 
-HANDLED_EVENT_TYPES = frozenset({CHECKOUT_SESSION_COMPLETED})
+CHECKOUT_MODE_SUBSCRIPTION = "subscription"
 
 SEE_OTHER = status.HTTP_303_SEE_OTHER
 STRIPE_SIGNATURE_HEADER = "stripe-signature"
@@ -170,6 +175,106 @@ def unlock_status(
     )
 
 
+def _handle_checkout_completed(db: Session, event_id: str, obj) -> None:
+    """A checkout finished. Which kind decides everything that follows.
+
+    Both kinds arrive as this one event type, both say payment_status paid, and
+    both carry a device ID. The only thing separating a customer who bought the
+    app outright from one who paid for a single month is `mode`.
+
+    Getting this wrong in the direction of the one-time path is the expensive
+    direction: an Unlock row has no expiry, so a monthly subscriber would own
+    the app forever after their first payment and cancelling would take nothing
+    away. That is why the check is on subscription mode explicitly rather than
+    on a one-time mode, and why anything unrecognised falls through to a
+    warning instead of being unlocked.
+    """
+    mode = obj["mode"] if "mode" in obj else None
+
+    if mode == CHECKOUT_MODE_SUBSCRIPTION:
+        _handle_subscription_checkout(db, event_id, obj)
+        return
+
+    checkout = read_checkout_session(obj)
+    if checkout.can_unlock:
+        grant_unlock(db, checkout, SOURCE_WEBHOOK)
+        return
+
+    logger.warning(
+        "event carried nothing to unlock %s",
+        fields(
+            event_id=event_id,
+            paid=checkout.paid,
+            has_device_id=bool(checkout.device_id),
+            ours=checkout.is_ours,
+        ),
+    )
+
+
+def _handle_subscription_checkout(db: Session, event_id: str, obj) -> None:
+    """Someone started a monthly plan.
+
+    Nothing is recorded yet, and that is deliberate rather than unfinished. The
+    subscription tables are not in the schema, and the table name is still with
+    the owner of models.py. Granting the permanent unlock in the meantime would
+    be worse than recording nothing.
+
+    Nothing reaches here in production either, because the subscribe endpoint
+    is closed until a recurring price is configured. If this line ever appears
+    in the log it means that changed and the storage did not follow.
+    """
+    logger.warning(
+        "subscription checkout completed, not yet recorded %s",
+        fields(
+            event_id=event_id,
+            session_id=obj["id"] if "id" in obj else None,
+            subscription=obj["subscription"] if "subscription" in obj else None,
+        ),
+    )
+
+
+def _handle_invoice(db: Session, event_id: str, obj) -> None:
+    """A renewal was paid, or failed to be."""
+    payment = read_invoice_event(obj)
+    logger.warning(
+        "subscription invoice received, not yet recorded %s",
+        fields(
+            event_id=event_id,
+            invoice=payment.invoice_id,
+            subscription=payment.stripe_subscription_id,
+            paid=payment.paid,
+            ours=payment.is_ours,
+        ),
+    )
+
+
+def _handle_subscription_change(db: Session, event_id: str, obj) -> None:
+    """A subscription changed status, or ended."""
+    state = read_subscription_event(obj)
+    logger.warning(
+        "subscription change received, not yet recorded %s",
+        fields(
+            event_id=event_id,
+            subscription=state.stripe_subscription_id,
+            status=state.status,
+            active=state.is_active,
+            cancelling=state.cancel_at_period_end,
+        ),
+    )
+
+
+# One handler per event type, and the set of types we accept is taken from the
+# keys. Adding an event to the map is the only thing needed to start handling
+# it, and there is no second list to forget to update.
+EVENT_HANDLERS = {
+    CHECKOUT_SESSION_COMPLETED: _handle_checkout_completed,
+    INVOICE_PAID: _handle_invoice,
+    INVOICE_PAYMENT_FAILED: _handle_invoice,
+    SUBSCRIPTION_UPDATED: _handle_subscription_change,
+    SUBSCRIPTION_DELETED: _handle_subscription_change,
+}
+
+
 @router.post(
     "/webhook",
     summary="Stripe event delivery",
@@ -196,7 +301,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -
     event_type = event["type"]
     logger.info("event received %s", fields(event_id=event_id, type=event_type))
 
-    if event_type not in HANDLED_EVENT_TYPES:
+    if event_type not in EVENT_HANDLERS:
         logger.info("event type not handled %s", fields(event_id=event_id, type=event_type))
         return Response(status_code=200)
 
@@ -205,19 +310,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)) -
         return Response(status_code=200)
 
     try:
-        checkout = read_checkout_session(event["data"]["object"])
-        if checkout.can_unlock:
-            grant_unlock(db, checkout, SOURCE_WEBHOOK)
-        else:
-            logger.warning(
-                "event carried nothing to unlock %s",
-                fields(
-                    event_id=event_id,
-                    paid=checkout.paid,
-                    has_device_id=bool(checkout.device_id),
-                    ours=checkout.is_ours,
-                ),
-            )
+        EVENT_HANDLERS[event_type](db, event_id, event["data"]["object"])
         mark_event_processed(db, claimed)
     except Exception:
         db.rollback()
