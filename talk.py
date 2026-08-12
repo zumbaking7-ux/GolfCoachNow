@@ -55,7 +55,7 @@ KEYWORD_MAP = {
         "stance_too_narrow": ["stance narrow", "too narrow", "feet too close"],
         "ball_position_error": ["ball position", "ball too far", "ball placement"],
         "grip_pressure_too_tight": ["grip tight", "grip pressure", "squeezing", "holding too tight"],
-        "poor_distance_control": ["distance control", "distance", "lag", "leave short", "too far past"],
+        "poor_distance_control": ["distance control", "coming up short", "leave short", "leaving short", "too far past", "distance", "lag", "short of the hole", "not enough pace"],
         "pushing_putts": ["push", "pushing", "miss right", "goes right"],
         "pulling_putts": ["pull", "pulling", "miss left", "goes left"],
         "yips": ["yips", "twitch", "flinch", "nervous", "jerk"],

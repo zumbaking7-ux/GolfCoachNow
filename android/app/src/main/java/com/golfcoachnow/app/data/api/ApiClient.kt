@@ -130,6 +130,28 @@ object ApiClient {
             }
         }
 
+    fun trackEvent(name: String, module: GolfModule? = null) {
+        val payload = buildString {
+            append("{\"device_id\":\"${com.golfcoachnow.app.util.EntitlementManager.deviceId}\"")
+            append(",\"event_name\":\"$name\"")
+            append(",\"platform\":\"android\"")
+            if (module != null) append(",\"module\":\"${module.uploadParam}\"")
+            append("}")
+        }
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/analytics/event")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.newCall(request).enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) {}
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    response.close()
+                }
+            })
+        } catch (_: Exception) {}
+    }
+
     private inline fun <reified T> handleResponse(response: okhttp3.Response): Result<T> {
         val body = response.body?.string() ?: return Result.failure(IOException("Empty response"))
 

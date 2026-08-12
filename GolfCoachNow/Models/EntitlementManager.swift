@@ -5,9 +5,15 @@ final class EntitlementManager {
     static let shared = EntitlementManager()
 
     private let unlockedKey = "gcn_unlocked"
+    private let deviceIdKey = "gcn_device_id"
 
     var deviceId: String {
-        UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        if let stored = UserDefaults.standard.string(forKey: deviceIdKey) {
+            return stored
+        }
+        let id = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        UserDefaults.standard.set(id, forKey: deviceIdKey)
+        return id
     }
 
     var isUnlocked: Bool {

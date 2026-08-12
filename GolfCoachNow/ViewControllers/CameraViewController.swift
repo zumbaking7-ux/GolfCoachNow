@@ -208,12 +208,13 @@ final class CameraViewController: UIViewController {
         view.addSubview(statusLabel)
         view.addSubview(recordButton)
         view.addSubview(flipButton)
-        view.addSubview(talkButton)
+        // talkButton hidden until V1.1 Talk Mode contract
+        // view.addSubview(talkButton)
 
         recordButton.addTarget(self, action: #selector(recordTapped), for: .touchUpInside)
         flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        talkButton.addTarget(self, action: #selector(talkTapped), for: .touchUpInside)
+        // talkButton.addTarget(self, action: #selector(talkTapped), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
@@ -265,10 +266,11 @@ final class CameraViewController: UIViewController {
             flipButton.widthAnchor.constraint(equalToConstant: 44),
             flipButton.heightAnchor.constraint(equalToConstant: 44),
 
-            talkButton.centerYAnchor.constraint(equalTo: recordButton.centerYAnchor),
-            talkButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            talkButton.widthAnchor.constraint(equalToConstant: 44),
-            talkButton.heightAnchor.constraint(equalToConstant: 44),
+            // talkButton constraints hidden until V1.1
+            // talkButton.centerYAnchor.constraint(equalTo: recordButton.centerYAnchor),
+            // talkButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            // talkButton.widthAnchor.constraint(equalToConstant: 44),
+            // talkButton.heightAnchor.constraint(equalToConstant: 44),
         ])
     }
 
@@ -464,6 +466,7 @@ final class CameraViewController: UIViewController {
 
     private func showCorrection(_ response: CorrectionResponse) {
         statusLabel.text = ""
+        APIClient.shared.trackEvent("rep_completed", module: module)
 
         repLabel.text = "Rep: \(response.rep)"
         UIView.animate(withDuration: 0.15, animations: {

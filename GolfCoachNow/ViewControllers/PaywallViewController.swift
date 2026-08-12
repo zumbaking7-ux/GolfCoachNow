@@ -108,7 +108,6 @@ final class PaywallViewController: UIViewController {
         ("target", "Putt Analysis — stroke and speed control"),
         ("flag.fill", "Short Game — chipping and pitching"),
         ("infinity", "Unlimited reps per day"),
-        ("waveform", "Talk Mode voice coaching"),
         ("square.and.arrow.up", "Share results with your coach"),
     ]
 

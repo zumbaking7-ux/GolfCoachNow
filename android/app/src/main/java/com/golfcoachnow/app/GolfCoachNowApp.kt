@@ -1,6 +1,7 @@
 package com.golfcoachnow.app
 
 import android.app.Application
+import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.util.EntitlementManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ class GolfCoachNowApp : Application() {
         scope.launch {
             EntitlementManager.loadFromDisk(this@GolfCoachNowApp)
             EntitlementManager.checkRemoteStatus(this@GolfCoachNowApp)
+            ApiClient.trackEvent("app_open")
         }
     }
 }

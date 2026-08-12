@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.data.model.GolfModule
 import com.golfcoachnow.app.ui.theme.DarkCard
 import com.golfcoachnow.app.ui.theme.GolfGreen
@@ -51,7 +52,10 @@ fun HomeScreen(onModuleSelected: (GolfModule) -> Unit) {
         ModuleCard(
             module = GolfModule.SWING,
             icon = Icons.Default.SportsGolf,
-            onClick = { onModuleSelected(GolfModule.SWING) },
+            onClick = {
+                ApiClient.trackEvent("module_selected", GolfModule.SWING)
+                onModuleSelected(GolfModule.SWING)
+            },
         )
 
         Spacer(Modifier.height(16.dp))
@@ -59,7 +63,10 @@ fun HomeScreen(onModuleSelected: (GolfModule) -> Unit) {
         ModuleCard(
             module = GolfModule.PUTT,
             icon = Icons.Default.GolfCourse,
-            onClick = { onModuleSelected(GolfModule.PUTT) },
+            onClick = {
+                ApiClient.trackEvent("module_selected", GolfModule.PUTT)
+                onModuleSelected(GolfModule.PUTT)
+            },
         )
 
         Spacer(Modifier.height(16.dp))
@@ -67,7 +74,10 @@ fun HomeScreen(onModuleSelected: (GolfModule) -> Unit) {
         ModuleCard(
             module = GolfModule.SHORT_GAME,
             icon = Icons.Default.Landscape,
-            onClick = { onModuleSelected(GolfModule.SHORT_GAME) },
+            onClick = {
+                ApiClient.trackEvent("module_selected", GolfModule.SHORT_GAME)
+                onModuleSelected(GolfModule.SHORT_GAME)
+            },
         )
     }
 }
