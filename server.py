@@ -120,8 +120,10 @@ def _save_result(device_id: str, module: str, result: dict):
 
 
 def _check_and_record(device_id: str, module: str):
-    if not _has_payments or not device_id:
+    if not _has_payments:
         return
+    if not device_id:
+        raise HTTPException(400, "device_id is required")
     db = next(get_session())
     try:
         status = record_usage(db, device_id, module)
