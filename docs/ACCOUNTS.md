@@ -101,7 +101,10 @@ Unchanged for existing callers. It now also accepts a token.
     {
       "device_id": "8f14e45fceea167a",
       "unlocked": true,
-      "unlocked_at": "2026-08-09T18:24:11Z"
+      "unlocked_at": "2026-08-09T18:24:11Z",
+      "plan": "lifetime",
+      "expires_at": null,
+      "cancel_at_period_end": false
     }
 
 | Status | Cause |
@@ -110,9 +113,16 @@ Unchanged for existing callers. It now also accepts a token.
 | 422 | Neither a token nor `device_id` was sent. |
 | 429 | Rate limited. |
 
-With a valid token the answer covers **every device that person has linked**.
-Without one, or with a token that is not valid, it falls back to answering for
-`device_id` alone.
+With a valid token the answer covers **every device that person has linked**,
+**and** the `device_id` in the request. It is the union of the two, never one
+instead of the other - sending a token must never hide a purchase that the same
+request without the token would have found.
+
+Without a token, or with one that is not valid, it answers for `device_id`
+alone.
+
+The last three fields arrived with subscriptions and are described in
+[SUBSCRIPTIONS.md](SUBSCRIPTIONS.md).
 
 An invalid or revoked token is ignored rather than rejected, so send
 `device_id` as well where you have it and the call still answers.

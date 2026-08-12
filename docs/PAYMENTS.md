@@ -128,11 +128,20 @@ Response `200`:
     {
       "device_id": "8f14e45fceea167a",
       "unlocked": true,
-      "unlocked_at": "2026-08-09T18:24:11Z"
+      "unlocked_at": "2026-08-09T18:24:11Z",
+      "plan": "lifetime",
+      "expires_at": null,
+      "cancel_at_period_end": false
     }
 
 A device that has never paid gets the same `200` with `"unlocked": false` and
 `"unlocked_at": null`. Not paying is not an error.
+
+The last three fields arrived with subscriptions and are described in
+[SUBSCRIPTIONS.md](SUBSCRIPTIONS.md). A one-time purchase always reports
+`"plan": "lifetime"` with a null `expires_at`, because it does not expire.
+
+`unlocked` means the same thing it always did. Read that, not `plan`.
 
 | Status | Cause |
 | --- | --- |
@@ -151,13 +160,22 @@ send the event again.
 | 400 | Signature did not verify, so this did not come from Stripe. | Stops. |
 | 500 | We should have handled it and could not. | Retries. |
 
-Only `checkout.session.completed` is acted on. Anything else gets a 200 and is
-ignored, which is how you stop Stripe resending it.
+`checkout.session.completed` is what this document covers. Five more events are
+acted on for subscriptions - the `customer.subscription.*` and `invoice.*` set
+listed in [SUBSCRIPTIONS.md](SUBSCRIPTIONS.md) and in the deployment steps.
+Anything outside that set gets a 200 and is ignored, which is how you stop
+Stripe resending it.
+
+A subscription checkout arrives as this same `checkout.session.completed`
+event. It is told apart by `mode` and deliberately does **not** write an
+`unlocks` row, because that row has no expiry and a month's payment must not
+buy the product outright.
 
 ## The unlock, in prose
 
 A device is unlocked when a row exists for it in the `unlocks` table. There is
-no flag to flip and no other state. The row is written in one place,
+no flag to flip and no other state. Subscriptions are a separate table with
+their own lifecycle; this section describes the one-time purchase only. The row is written in one place,
 `grant_unlock` in `payments/service.py`, reached from the webhook and from the
 success redirect, and only after Stripe has confirmed `payment_status` is
 `paid`.

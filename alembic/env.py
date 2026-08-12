@@ -14,10 +14,19 @@ from sqlalchemy import engine_from_config, pool
 
 from payments.models import Base
 
-# Imported for its side effect: defining the classes registers the accounts
-# tables on Base.metadata, which is what autogenerate compares against. Without
-# this line those tables are invisible to Alembic.
+# Imported for their side effect: defining the classes registers those tables on
+# Base.metadata, which is what autogenerate compares against.
+#
+# A table missing from here is not merely invisible. Autogenerate sees it in the
+# database, cannot find it in the metadata, and proposes DROP TABLE. Leaving
+# user_subscriptions out of this list would put a migration that deletes every
+# customer's subscription state in front of whoever next runs autogenerate, and
+# the docstrings in these migrations already warn that autogenerate proposes odd
+# things here, which is exactly what makes such a drop easy to wave through.
+#
+# Any new model module goes in this list on the same commit that creates it.
 import payments.accounts_models  # noqa: F401,E402
+import payments.subscription_models  # noqa: F401,E402
 
 config = context.config
 

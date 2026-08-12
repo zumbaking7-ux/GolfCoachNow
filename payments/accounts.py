@@ -34,6 +34,7 @@ from payments.accounts_models import AuthToken, LoginCode, User, UserDevice, utc
 from payments.config import settings
 from payments.logging_config import fields, get_logger
 from payments.models import Unlock
+from payments.service import find_unlock
 
 logger = get_logger("accounts")
 
@@ -280,3 +281,34 @@ def unlock_for_user(session: Session, user: User) -> Unlock | None:
     return session.scalars(
         select(Unlock).where(Unlock.device_id.in_(device_ids)).order_by(Unlock.id)
     ).first()
+
+
+def unlock_for(
+    session: Session, user: User | None, device_id: str | None
+) -> Unlock | None:
+    """Any unlock belonging to this person or this device.
+
+    The union of the two, never one instead of the other. Answering by account
+    alone looks correct until the device in front of you is the one that paid
+    and was never linked - somebody who signed in without the app sending a
+    device_id, which the endpoint allows because device_id is optional there.
+
+    That produced the worst possible shape of bug: sending a valid token made a
+    paying customer read as unpaid, while the same request without the token
+    read as unlocked. A credential must never leave someone worse off than no
+    credential at all.
+
+    It hit the one-time buyers specifically, the people who paid once for
+    permanent access, and it was invisible because both halves looked right on
+    their own. Subscriptions were always answered as a union; this is now the
+    same shape.
+    """
+    if user is not None:
+        unlock = unlock_for_user(session, user)
+        if unlock is not None:
+            return unlock
+
+    if device_id:
+        return find_unlock(session, device_id)
+
+    return None

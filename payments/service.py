@@ -1,10 +1,9 @@
-"""Subscription logic. The only module that writes to the subscriptions table.
+"""One-time purchases: reading a Checkout Session and recording an unlock.
 
-Two code paths create/update subscriptions:
-1. The success redirect (browser lands here after Stripe Checkout)
-2. The webhook (Stripe sends events for subscription lifecycle)
-
-Both go through the same upsert functions so they converge on one row.
+Subscriptions are not here. They live in subscriptions.py for parsing and
+subscription_service.py for storage, and the docstring this replaced described
+a subscription path that was reverted before launch and removed in the commit
+that added the real one.
 """
 
 from dataclasses import dataclass
@@ -16,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from payments.logging_config import fields, get_logger
-from payments.models import ProcessedEvent, Subscription, Unlock, utcnow
+from payments.models import ProcessedEvent, Unlock, utcnow
 from payments.stripe_gateway import PRODUCT_MARKER_KEY, PRODUCT_MARKER_VALUE
 
 logger = get_logger("service")
@@ -25,9 +24,6 @@ PAYMENT_STATUS_PAID = "paid"
 
 SOURCE_WEBHOOK = "webhook"
 SOURCE_SUCCESS_REDIRECT = "success_redirect"
-
-ACTIVE_STATUSES = frozenset({"active", "trialing"})
-
 
 @dataclass(frozen=True)
 class CheckoutDetails:
@@ -45,17 +41,6 @@ class CheckoutDetails:
     @property
     def can_unlock(self) -> bool:
         return self.paid and bool(self.device_id) and self.is_ours
-
-
-@dataclass(frozen=True)
-class SubscriptionUpdate:
-    stripe_subscription_id: str
-    stripe_customer_id: str
-    status: str
-    current_period_end: datetime | None
-    device_id: str | None
-    customer_email: str | None
-    is_ours: bool
 
 
 def _field(source: Any, key: str) -> Any:
@@ -108,120 +93,8 @@ def read_checkout_session(checkout_session: Any) -> CheckoutDetails:
     )
 
 
-def read_subscription_event(subscription_obj: Any) -> SubscriptionUpdate:
-    metadata = _field(subscription_obj, "metadata")
-    return SubscriptionUpdate(
-        stripe_subscription_id=_field(subscription_obj, "id") or "",
-        stripe_customer_id=_customer_id(_field(subscription_obj, "customer")) or "",
-        status=_field(subscription_obj, "status") or "",
-        current_period_end=_epoch_to_datetime(_field(subscription_obj, "current_period_end")),
-        device_id=_field(metadata, "device_id"),
-        customer_email=None,
-        is_ours=_field(metadata, PRODUCT_MARKER_KEY) == PRODUCT_MARKER_VALUE,
-    )
-
-
-def find_subscription(session: Session, device_id: str) -> Subscription | None:
-    return session.scalars(
-        select(Subscription).where(Subscription.device_id == device_id)
-    ).first()
-
-
-def find_subscription_by_stripe_id(session: Session, stripe_sub_id: str) -> Subscription | None:
-    return session.scalars(
-        select(Subscription).where(Subscription.stripe_subscription_id == stripe_sub_id)
-    ).first()
-
-
 def find_unlock(session: Session, device_id: str) -> Unlock | None:
     return session.scalars(select(Unlock).where(Unlock.device_id == device_id)).first()
-
-
-def is_device_active(session: Session, device_id: str) -> tuple[bool, Subscription | None]:
-    sub = find_subscription(session, device_id)
-    if sub and sub.status in ACTIVE_STATUSES:
-        return True, sub
-    unlock = find_unlock(session, device_id)
-    if unlock:
-        return True, None
-    return False, None
-
-
-def grant_subscription(
-    session: Session, checkout: CheckoutDetails, source: str
-) -> bool:
-    if not checkout.stripe_subscription_id:
-        logger.warning(
-            "checkout has no subscription ID %s",
-            fields(session_id=checkout.session_id),
-        )
-        return False
-
-    existing = find_subscription_by_stripe_id(session, checkout.stripe_subscription_id)
-    if existing:
-        existing.status = "active"
-        existing.updated_at = utcnow()
-        session.commit()
-        logger.info(
-            "subscription updated from checkout %s",
-            fields(device_id=existing.device_id, sub_id=checkout.stripe_subscription_id),
-        )
-        return False
-
-    sub = Subscription(
-        device_id=checkout.device_id,
-        stripe_customer_id=checkout.stripe_customer_id or "",
-        stripe_subscription_id=checkout.stripe_subscription_id,
-        status="active",
-        current_period_end=None,
-        customer_email=checkout.customer_email,
-        source=source,
-    )
-    session.add(sub)
-
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        logger.info(
-            "subscription already present %s",
-            fields(device_id=checkout.device_id, sub_id=checkout.stripe_subscription_id),
-        )
-        return False
-
-    logger.info(
-        "subscription created %s",
-        fields(device_id=checkout.device_id, sub_id=checkout.stripe_subscription_id, source=source),
-    )
-    return True
-
-
-def update_subscription_status(
-    session: Session, update: SubscriptionUpdate
-) -> bool:
-    sub = find_subscription_by_stripe_id(session, update.stripe_subscription_id)
-    if not sub:
-        logger.warning(
-            "subscription not found for update %s",
-            fields(sub_id=update.stripe_subscription_id, status=update.status),
-        )
-        return False
-
-    sub.status = update.status
-    if update.current_period_end:
-        sub.current_period_end = update.current_period_end
-    sub.updated_at = utcnow()
-    session.commit()
-
-    logger.info(
-        "subscription status updated %s",
-        fields(
-            device_id=sub.device_id,
-            sub_id=update.stripe_subscription_id,
-            status=update.status,
-        ),
-    )
-    return True
 
 
 def grant_unlock(session: Session, checkout: CheckoutDetails, source: str) -> bool:

@@ -1,8 +1,8 @@
 """Entitlement checks. Decides whether a device can use a module.
 
-Paid users (one-time unlock) get unlimited access. Free users get
-FREE_REPS_PER_DAY per module per day (UTC). The daily reset happens
-naturally — we only count today's rows.
+Paid users get unlimited access, whether they bought the one-time unlock or
+subscribe monthly. Everyone else gets FREE_REPS_PER_DAY per module per day
+(UTC), and the daily reset happens naturally because only today's rows count.
 """
 
 from dataclasses import dataclass
@@ -13,6 +13,24 @@ from sqlalchemy.orm import Session
 
 from payments.models import DailyUsage, FREE_REPS_PER_DAY, today_utc
 from payments.service import find_unlock
+from payments.subscription_service import active_subscription
+
+
+def has_paid_access(session: Session, device_id: str) -> bool:
+    """Whether this device may use the paid features without a daily cap.
+
+    Both kinds of purchase count, and missing the second one is expensive in a
+    quiet way: unlock-status would tell a subscriber they are unlocked, and
+    then the module endpoints would cut them off after three reps a day with a
+    message inviting them to subscribe. They are already paying.
+
+    Checked by device rather than by account because that is what these
+    endpoints are given. A subscriber who signs in on a second phone links it,
+    and from that point the device is found through the account anyway.
+    """
+    if find_unlock(session, device_id) is not None:
+        return True
+    return active_subscription(session, device_id=device_id) is not None
 
 
 @dataclass(frozen=True)
@@ -25,7 +43,7 @@ class EntitlementStatus:
 
 
 def check_entitlement(session: Session, device_id: str, module: str) -> EntitlementStatus:
-    active = find_unlock(session, device_id) is not None
+    active = has_paid_access(session, device_id)
     if active:
         return EntitlementStatus(
             allowed=True,
@@ -48,7 +66,7 @@ def check_entitlement(session: Session, device_id: str, module: str) -> Entitlem
 
 
 def record_usage(session: Session, device_id: str, module: str) -> EntitlementStatus:
-    active = find_unlock(session, device_id) is not None
+    active = has_paid_access(session, device_id)
     if active:
         return EntitlementStatus(
             allowed=True,

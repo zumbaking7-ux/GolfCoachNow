@@ -10,6 +10,7 @@ from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_URL_SCHEMES = ("http://", "https://")
+PRICE_ID_PREFIX = "price_"
 
 PROVIDER_CONSOLE = "console"
 PROVIDER_RESEND = "resend"
@@ -27,9 +28,31 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str
     stripe_price_id: str
 
+    # The recurring price for the monthly plan.
+    #
+    # Every other Stripe setting here is required, because a payment service
+    # missing one should refuse to start rather than fail on a customer's card.
+    # This one is deliberately not, and the reason is worth writing down.
+    #
+    # The one-time product is live and selling today. If this were required,
+    # deploying the subscription code before the recurring price exists would
+    # take the running service down and stop the sales that already work. A
+    # missing price here costs nobody their purchase; it means the subscribe
+    # endpoint is not open yet, which is exactly what is true.
+    #
+    # So: unset is a legal state, the subscribe endpoint answers 503 while it
+    # lasts, and startup says so in the log rather than silently looking fine.
+    stripe_subscription_price_id: str = ""
+
     public_base_url: str
     success_deep_link: str = "golfcoachnow://payment-success"
     cancel_deep_link: str = "golfcoachnow://payment-cancelled"
+
+    # Where Stripe sends the browser back after someone finishes in the billing
+    # portal. Unlike the checkout success URL this points straight at the app,
+    # because there is nothing to record on the way back. Cancellations and card
+    # changes reach us as webhook events; the return trip is only navigation.
+    portal_return_deep_link: str = "golfcoachnow://subscription-updated"
 
     database_url: str = "sqlite:///./payments.db"
     log_level: str = "INFO"
@@ -83,6 +106,28 @@ class Settings(BaseSettings):
         if self.email_provider == PROVIDER_RESEND and not self.resend_api_key:
             raise ValueError("RESEND_API_KEY is required when EMAIL_PROVIDER is resend")
         return self
+
+    @field_validator("stripe_price_id", "stripe_subscription_price_id")
+    @classmethod
+    def must_look_like_a_price(cls, value: str) -> str:
+        """Catch a product or payment link pasted in where a price belongs.
+
+        Easy mistake to make from the dashboard, and without this the error
+        arrives as a Stripe rejection at the moment a customer tries to pay.
+        Empty is allowed here; whether empty is acceptable is decided per field.
+        """
+        value = value.strip()
+        if value and not value.startswith(PRICE_ID_PREFIX):
+            raise ValueError(
+                f"expected a Stripe price ID starting with {PRICE_ID_PREFIX!r}, "
+                f"got {value[:12]!r}"
+            )
+        return value
+
+    @property
+    def subscriptions_enabled(self) -> bool:
+        """Whether the monthly plan can be sold yet."""
+        return bool(self.stripe_subscription_price_id)
 
     @field_validator("public_base_url")
     @classmethod

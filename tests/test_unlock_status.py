@@ -20,6 +20,9 @@ def test_unknown_device_is_not_unlocked(client):
         "device_id": "never_seen_before",
         "unlocked": False,
         "unlocked_at": None,
+        "plan": "none",
+        "expires_at": None,
+        "cancel_at_period_end": False,
     }
 
 
