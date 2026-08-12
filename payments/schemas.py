@@ -4,9 +4,35 @@ FastAPI turns these into the OpenAPI schema served at /docs, which is the
 contract the mobile app is written against. The examples below show up there.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+
+
+def as_utc_iso(value: datetime | None) -> str | None:
+    """Serialise a timestamp as UTC with an explicit Z.
+
+    Every datetime in this package is stored in UTC, but SQLite hands them back
+    without a timezone attached, and pydantic then renders them bare:
+
+        2026-09-12T17:12:50        instead of        2026-09-12T17:12:50Z
+
+    That is not a cosmetic difference. A reader cannot tell whether it means
+    UTC or the server's local time, and strict ISO 8601 parsers reject it -
+    Swift's ISO8601DateFormatter returns nil rather than a wrong answer, and
+    Kotlin's Instant.parse throws.
+
+    Both apps currently declare these fields as String and never parse them, so
+    nothing breaks today. It breaks the first time somebody builds a screen
+    that says when a subscription renews, which is a screen this milestone
+    exists to make possible.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 DEVICE_ID_MAX_LENGTH = 255
 
@@ -247,3 +273,8 @@ class UnlockStatusResponse(BaseModel):
             "billing screen rather than letting it end without warning."
         ),
     )
+
+    @field_serializer("unlocked_at", "expires_at")
+    def _timestamps_as_utc(self, value: datetime | None) -> str | None:
+        return as_utc_iso(value)
+
