@@ -79,22 +79,6 @@ def migrated_database():
     config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
     command.upgrade(config, "head")
 
-    # These four exist on the production server but no migration creates them.
-    # They were added directly to the live database, which is issue #5 and is
-    # not ours to fix. Creating them here rather than writing somebody else's
-    # migrations keeps the test database matching production, which is what
-    # these tests should be run against.
-    #
-    # This is not hiding the gap: test_migrations_match_models lists exactly
-    # these four and fails if anything else drifts, so the debt stays visible
-    # and stays measured.
-    from payments.models import Base  # noqa: E402
-
-    for table_name in ("subscriptions", "daily_usage", "analytics_events", "rep_results"):
-        table = Base.metadata.tables.get(table_name)
-        if table is not None:
-            table.create(engine, checkfirst=True)
-
     yield
 
     # Windows will not delete a file that still has an open handle, and the

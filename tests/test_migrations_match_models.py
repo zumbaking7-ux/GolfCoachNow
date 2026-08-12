@@ -28,16 +28,32 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# Declared in models.py but created directly on the production server and never
-# put into a migration. Their owner has agreed to add them; until then
-# autogenerate correctly reports them as absent from the schema, which is real
-# but not ours to fix.
-TABLES_WITHOUT_MIGRATIONS = {
-    "subscriptions",
-    "daily_usage",
-    "analytics_events",
-    "rep_results",
-}
+# Nothing. daily_usage, analytics_events and rep_results were declared in
+# models.py with no migration to create them, which is why a fresh database
+# could not serve a request. a7b3e9f12c84 fixed that, so this list is empty and
+# the check below now protects every model rather than excusing four of them.
+#
+# Deliberately kept as an empty set rather than deleted. A future table added
+# directly to a server would belong here, briefly, with a note saying who is
+# writing the migration and when.
+TABLES_WITHOUT_MIGRATIONS: set[str] = set()
+
+# The other direction: created by a migration, declared by no model.
+#
+# subscriptions is the legacy table from the reverted V1.0 scaffold. Production
+# still has it, so a7b3e9f12c84 recreates it for fresh databases rather than
+# letting the two diverge. Its model was deleted along with the dead code that
+# used it, and no code touches the table now.
+#
+# So autogenerate sees a table nothing declares and proposes dropping it. That
+# is correct behaviour from Alembic and the wrong action to take, since the
+# production copy may hold rows nobody has looked at. Naming it here says the
+# gap is known and deliberate, which is the difference between a documented
+# decision and drift.
+#
+# It leaves this set the day somebody confirms the production table is empty
+# and writes a migration to drop it properly.
+LEGACY_TABLES_WITHOUT_MODELS = {"subscriptions"}
 
 # Runs inside a fresh interpreter. Builds a throwaway database from the real
 # migrations, then asks Alembic what it would still change, importing nothing
@@ -125,13 +141,37 @@ def test_autogenerate_would_not_drop_a_live_table(differences):
     Alembic like a leftover. The next autogenerate proposes dropping it, and
     whoever runs it has no reason to think that line is wrong.
     """
-    doomed = sorted(name for kind, name in differences if kind == "remove_table")
+    doomed = sorted(
+        name
+        for kind, name in differences
+        if kind == "remove_table" and name not in LEGACY_TABLES_WITHOUT_MODELS
+    )
 
     assert not doomed, (
         f"autogenerate would propose DROP TABLE for {doomed}. The migrations "
         f"create these but no model imported by alembic/env.py declares them, "
-        f"so Alembic reads them as leftovers. Add the model module to the "
-        f"imports at the top of alembic/env.py."
+        f"so Alembic reads them as leftovers. Either add the model module to "
+        f"the imports at the top of alembic/env.py, or if the table is "
+        f"deliberately unmodelled, name it in LEGACY_TABLES_WITHOUT_MODELS "
+        f"with the reason."
+    )
+
+
+def test_the_legacy_exemption_still_describes_something_real(differences):
+    """An exemption nobody revisits becomes a lie.
+
+    If the legacy table stops being proposed for removal - because somebody
+    modelled it, or dropped it properly - the entry here is stale and should
+    go. This fails when that happens, so the list cannot quietly outlive its
+    reason.
+    """
+    proposed = {name for kind, name in differences if kind == "remove_table"}
+    stale = sorted(LEGACY_TABLES_WITHOUT_MODELS - proposed)
+
+    assert not stale, (
+        f"{stale} are listed as legacy tables without models, but autogenerate "
+        f"no longer proposes dropping them. Whatever made them an exception "
+        f"has been resolved, so remove them from LEGACY_TABLES_WITHOUT_MODELS."
     )
 
 
