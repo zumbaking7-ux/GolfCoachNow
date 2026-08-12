@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     login_code_ttl_minutes: int = 10
     login_code_max_attempts: int = 5
 
+    # Much tighter than the general limit, because this endpoint sends email.
+    # Counted per caller and separately per email address, so neither one
+    # person can mail the world nor the world mail one person.
+    auth_rate_limit_requests: int = 5
+    auth_rate_limit_window_seconds: int = 300
+
     @field_validator("email_provider")
     @classmethod
     def must_be_a_known_provider(cls, value: str) -> str:

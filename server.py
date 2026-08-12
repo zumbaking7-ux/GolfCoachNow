@@ -13,6 +13,7 @@ from talk import process_talk
 
 try:
     from payments.routes import router as payments_router
+    from payments.auth_routes import router as auth_router
     from payments.db import get_session
     from payments.entitlement import check_entitlement, record_usage
     from payments.models import AnalyticsEvent, RepResult
@@ -21,6 +22,7 @@ try:
     _has_payments = True
 except ImportError:
     payments_router = None
+    auth_router = None
     _has_payments = False
 
 app = FastAPI(
@@ -39,6 +41,7 @@ VALID_MODULES = frozenset(MODULE_ENGINES.keys())
 
 if payments_router is not None:
     app.include_router(payments_router)
+    app.include_router(auth_router)
 
 ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "m4v"}
 MAX_FILE_SIZE = 16 * 1024 * 1024

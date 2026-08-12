@@ -11,6 +11,8 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from payments import stripe_gateway
+from payments.accounts import unlock_for_user, user_for_token
+from payments.auth_routes import bearer_token
 from payments.config import settings
 from payments.db import get_session
 from payments.logging_config import fields, get_logger
@@ -132,8 +134,34 @@ def payment_cancelled() -> RedirectResponse:
     responses={429: {"description": "Too many requests from this address."}},
 )
 def unlock_status(
-    device_id: str, db: Session = Depends(get_session)
+    request: Request,
+    device_id: str | None = None,
+    db: Session = Depends(get_session),
 ) -> UnlockStatusResponse:
+    """Answer for the signed in person if there is one, otherwise the device.
+
+    A signed in answer covers every device that person has ever linked, which
+    is what makes a purchase survive a reinstall.
+
+    The device path is unchanged. A request with no token behaves exactly as it
+    did before accounts existed, so the shipped app keeps working and the login
+    screens can arrive whenever the app team is ready.
+    """
+    user = user_for_token(db, bearer_token(request))
+    if user is not None:
+        unlock = unlock_for_user(db, user)
+        return UnlockStatusResponse(
+            device_id=device_id or "",
+            unlocked=unlock is not None,
+            unlocked_at=unlock.created_at if unlock else None,
+        )
+
+    if not device_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Send device_id, or an Authorization bearer token.",
+        )
+
     unlock = find_unlock(db, device_id)
     return UnlockStatusResponse(
         device_id=device_id,
