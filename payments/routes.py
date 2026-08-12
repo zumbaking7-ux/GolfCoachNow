@@ -100,6 +100,7 @@ def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionRes
         429: {"description": "Too many requests from this address."},
         502: {"description": "Stripe could not be reached."},
         409: {"description": "Already subscribed."},
+        422: {"description": "device_id missing or empty."},
         503: {"description": "No recurring price is configured yet."},
     },
 )
@@ -313,7 +314,10 @@ def payment_cancelled() -> RedirectResponse:
     response_model=UnlockStatusResponse,
     summary="Has this device paid?",
     dependencies=[Depends(rate_limit)],
-    responses={429: {"description": "Too many requests from this address."}},
+    responses={
+        422: {"description": "Neither a token nor device_id was sent."},
+        429: {"description": "Too many requests from this address."},
+    },
 )
 def unlock_status(
     request: Request,
