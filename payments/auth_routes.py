@@ -86,19 +86,23 @@ def request_code(
     broken email provider should not hold a request open, and the person can
     ask for another code either way.
     """
-    if settings.rate_limit_enabled:
-        wait = _by_caller.check(client_key(request))
-        if wait is not None:
-            raise _too_many(wait)
+    address = normalise_email(payload.email)
 
-        address = normalise_email(payload.email)
-        wait = _by_email.check(address)
-        if wait is not None:
-            logger.warning("sign in flooding one address %s", fields(email=address))
-            raise _too_many(wait)
+    # Not behind rate_limit_enabled on purpose. That switch exists so the
+    # general limits can be loosened if mobile customers behind one carrier
+    # address start seeing 429s. Turning it off must not also leave an endpoint
+    # that sends email to any address anyone types wide open.
+    wait = _by_caller.check(client_key(request))
+    if wait is not None:
+        raise _too_many(wait)
 
-    code = request_login_code(db, payload.email)
-    background.add_task(send_login_code, normalise_email(payload.email), code)
+    wait = _by_email.check(address)
+    if wait is not None:
+        logger.warning("sign in flooding one address %s", fields(email=address))
+        raise _too_many(wait)
+
+    code = request_login_code(db, address)
+    background.add_task(send_login_code, address, code)
 
     return {"status": "sent"}
 
@@ -127,10 +131,9 @@ def verify_code(
     Sending device_id here is what links the phone to the account, and that is
     what makes an earlier purchase from this device findable afterwards.
     """
-    if settings.rate_limit_enabled:
-        wait = _by_caller.check(client_key(request))
-        if wait is not None:
-            raise _too_many(wait)
+    wait = _by_caller.check(client_key(request))
+    if wait is not None:
+        raise _too_many(wait)
 
     token = verify_login_code(db, payload.email, payload.code, payload.device_id)
     if token is None:

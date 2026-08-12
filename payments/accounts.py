@@ -162,22 +162,40 @@ def verify_login_code(
     return token
 
 
+def _user_by_email(session: Session, address: str) -> User | None:
+    """Its own function so the tests can force the race below."""
+    return session.scalars(select(User).where(User.email == address)).first()
+
+
 def _find_or_create_user(session: Session, address: str) -> User:
-    user = session.scalars(select(User).where(User.email == address)).first()
+    """Find the account, or make one, surviving a simultaneous sign in.
+
+    The insert runs inside a savepoint rather than a plain flush. Two people
+    verifying a first code for the same address at the same moment means one
+    of them loses the unique index. A bare session.rollback() there would
+    discard everything earlier in the transaction - including marking the code
+    used - and leave that code replayable. A savepoint undoes only the insert.
+    """
+    user = _user_by_email(session, address)
     if user:
         return user
 
-    user = User(email=address)
-    session.add(user)
     try:
-        session.flush()
+        with session.begin_nested():
+            user = User(email=address)
+            session.add(user)
     except IntegrityError:
-        # Two codes verified at the same moment. The unique index decided
-        # which one wins; read back the row the other request created.
-        session.rollback()
-        user = session.scalars(select(User).where(User.email == address)).first()
+        # The other request won. Read back the row it created.
+        user = _user_by_email(session, address)
 
     return user
+
+
+def _device_link(session: Session, device_id: str) -> UserDevice | None:
+    """Its own function so the tests can force the race below."""
+    return session.scalars(
+        select(UserDevice).where(UserDevice.device_id == device_id)
+    ).first()
 
 
 def _link_device(session: Session, user: User, device_id: str) -> None:
@@ -186,15 +204,20 @@ def _link_device(session: Session, user: User, device_id: str) -> None:
     Moving rather than sharing is deliberate. If a device could belong to two
     accounts, one purchase would unlock both.
     """
-    existing = session.scalars(
-        select(UserDevice).where(UserDevice.device_id == device_id)
-    ).first()
+    existing = _device_link(session, device_id)
 
     if existing is None:
-        session.add(UserDevice(user_id=user.id, device_id=device_id))
-        return
+        try:
+            # Savepoint for the same reason as the user insert: losing a race
+            # to link the same device must not throw away the rest of the sign
+            # in, and an uncaught unique violation here would surface as a 500.
+            with session.begin_nested():
+                session.add(UserDevice(user_id=user.id, device_id=device_id))
+            return
+        except IntegrityError:
+            existing = _device_link(session, device_id)
 
-    if existing.user_id != user.id:
+    if existing is not None and existing.user_id != user.id:
         logger.info(
             "device moved between accounts %s",
             fields(device_id=device_id, was=existing.user_id, now=user.id),
