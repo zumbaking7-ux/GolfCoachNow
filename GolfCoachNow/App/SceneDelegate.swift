@@ -47,9 +47,31 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 message: "Your payment was not completed. You can try again anytime."
             )
 
+        case "mode":
+            if let module = moduleFromPath(url.path) {
+                navigateToModule(module)
+            }
+
         default:
             break
         }
+    }
+
+    private func moduleFromPath(_ path: String) -> GolfModule? {
+        let name = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        switch name {
+        case "swing": return .swing
+        case "putt": return .putt
+        case "short_game", "short-game", "shortgame": return .shortGame
+        default: return nil
+        }
+    }
+
+    private func navigateToModule(_ module: GolfModule) {
+        guard let nav = window?.rootViewController as? UINavigationController else { return }
+        nav.popToRootViewController(animated: false)
+        let cameraVC = CameraViewController(module: module)
+        nav.pushViewController(cameraVC, animated: true)
     }
 
     private func dismissPresentedThenShow(title: String, message: String) {

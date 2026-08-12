@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 from wedge import process_mobile_input as wedge_process, CORRECTIONS as WEDGE_CORRECTIONS
@@ -429,3 +429,101 @@ def performance_stats(device_id: str = Query(...)):
         }
     finally:
         db.close()
+
+
+_GO_STYLE = """*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#080d17;color:#e8f5e9;font-family:-apple-system,'SF Pro Display','Segoe UI',system-ui,sans-serif;
+min-height:100vh;display:flex;align-items:center;justify-content:center;overflow-x:hidden}}
+.go{{min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:48px 24px 32px;position:relative;overflow:hidden}}
+.go::before{{content:'';position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:400px;height:400px;
+background:radial-gradient(circle,rgba(34,197,94,0.3) 0%,transparent 70%);pointer-events:none;
+animation:breathe 4s ease-in-out infinite}}
+@keyframes breathe{{0%,100%{{opacity:.4;transform:translateX(-50%) scale(.9)}}50%{{opacity:.7;transform:translateX(-50%) scale(1.1)}}}}
+.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(34,197,94,0.1) 1px,transparent 1px),
+linear-gradient(90deg,rgba(34,197,94,0.1) 1px,transparent 1px);background-size:40px 40px;opacity:.4;pointer-events:none}}
+.c{{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;max-width:340px;width:100%}}
+.brand{{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:#22c55e;font-weight:700;margin-bottom:32px;opacity:.8}}
+.icon{{width:88px;height:88px;border-radius:24px;background:#0f1729;border:1.5px solid rgba(34,197,94,0.1);
+display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:24px;
+box-shadow:0 0 40px rgba(34,197,94,0.12),0 8px 32px rgba(0,0,0,0.3)}}
+.mn{{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#22c55e;font-weight:700;margin-bottom:8px}}
+.mt{{font-size:32px;font-weight:800;letter-spacing:-0.02em;line-height:1.1;margin-bottom:12px;text-align:center}}
+.md{{font-size:15px;color:#6b7280;text-align:center;line-height:1.5;margin-bottom:28px}}
+.fs{{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:32px}}
+.f{{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#0f1729;
+border:1px solid rgba(34,197,94,0.1);border-radius:10px;font-size:13px;font-weight:500}}
+.fd{{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 6px rgba(34,197,94,0.3)}}
+.cta{{display:block;width:100%;padding:16px 24px;background:#22c55e;color:#fff;font-size:16px;font-weight:700;
+letter-spacing:.02em;border:none;border-radius:12px;text-decoration:none;text-align:center;cursor:pointer;
+position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(34,197,94,0.3),0 2px 8px rgba(0,0,0,0.2)}}
+.cta::after{{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:shimmer 3s ease-in-out infinite}}
+@keyframes shimmer{{0%{{left:-100%}}50%{{left:100%}}100%{{left:100%}}}}
+.dn{{margin-top:20px;font-size:12px;color:#374151;text-align:center;line-height:1.5}}
+.dn a{{color:#22c55e;text-decoration:none;font-weight:600}}
+.ft{{margin-top:28px;padding-top:20px;border-top:1px solid rgba(34,197,94,0.1);width:100%;
+display:flex;justify-content:center;gap:16px;font-size:11px;color:#374151;letter-spacing:.04em}}
+.sn{{color:#22c55e;font-weight:700}}"""
+
+_GO_PAGE = """<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GolfCoachNow — {title}</title>
+<style>""" + _GO_STYLE + """</style>
+</head><body>
+<div class="go"><div class="grid"></div>
+<div class="c">
+<div class="brand">GolfCoachNow</div>
+<div class="icon">{icon}</div>
+<div class="mn">{mode_label} Mode</div>
+<div class="mt">{headline}</div>
+<div class="md">{desc}</div>
+<div class="fs">
+<div class="f"><span class="fd"></span>{f1}</div>
+<div class="f"><span class="fd"></span>{f2}</div>
+<div class="f"><span class="fd"></span>{f3}</div>
+</div>
+<a class="cta" href="golfcoachnow://mode/{mode}">Launch {mode_label} Test →</a>
+<div class="dn">Don't have the app?<br><a href="#">Download for iOS</a> · <a href="#">Download for Android</a></div>
+<div class="ft"><span><span class="sn">20</span> faults tracked</span><span><span class="sn">3</span> free reps / day</span></div>
+</div></div>
+<script>setTimeout(function(){{window.location.href="golfcoachnow://mode/{mode}"}},300)</script>
+</body></html>"""
+
+
+@app.get("/go/swing", response_class=HTMLResponse)
+def go_swing():
+    return _GO_PAGE.format(
+        title="Swing Test", icon="🏌️", mode_label="Swing", mode="swing",
+        headline="Analyze Your<br>Full Swing",
+        desc="AI-powered down-the-line analysis with real-time correction feedback.",
+        f1="20 biomechanical checkpoints",
+        f2="Grip, plane &amp; tempo analysis",
+        f3="Instant correction with drill",
+    )
+
+
+@app.get("/go/putt", response_class=HTMLResponse)
+def go_putt():
+    return _GO_PAGE.format(
+        title="Putt Test", icon="🎯", mode_label="Putt", mode="putt",
+        headline="Master Your<br>Putting Stroke",
+        desc="Precision stroke analysis — speed, alignment, and face control at impact.",
+        f1="Speed &amp; distance calibration",
+        f2="Face angle at impact",
+        f3="Green reading confidence",
+    )
+
+
+@app.get("/go/short-game", response_class=HTMLResponse)
+def go_short_game():
+    return _GO_PAGE.format(
+        title="Short Game Test", icon="⛳", mode_label="Short Game", mode="short_game",
+        headline="Sharpen Your<br>Short Game",
+        desc="Chipping and pitching analysis — contact, trajectory, and distance control.",
+        f1="Contact quality detection",
+        f2="Trajectory &amp; landing zone",
+        f3="Club selection guidance",
+    )

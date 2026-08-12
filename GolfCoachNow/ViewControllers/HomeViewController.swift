@@ -1,6 +1,7 @@
 import UIKit
+import MessageUI
 
-final class HomeViewController: UIViewController {
+final class HomeViewController: UIViewController, MFMailComposeViewControllerDelegate {
 
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -38,6 +39,38 @@ final class HomeViewController: UIViewController {
         return label
     }()
 
+    private let pulseView: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = UIColor(red: 0, green: 1, blue: 0.4, alpha: 1.0)
+        v.layer.cornerRadius = 5
+        v.alpha = 0.6
+        return v
+    }()
+
+    private let pulseRing: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = .clear
+        v.layer.cornerRadius = 12
+        v.layer.borderWidth = 1.5
+        v.layer.borderColor = UIColor(red: 0, green: 1, blue: 0.4, alpha: 0.3).cgColor
+        return v
+    }()
+
+    private let contactButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.setTitle("✉  We'd love to hear from you", for: .normal)
+        btn.setTitleColor(UIColor(red: 0, green: 1, blue: 0.4, alpha: 0.7), for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        btn.backgroundColor = UIColor(red: 0, green: 1, blue: 0.4, alpha: 0.08)
+        btn.layer.cornerRadius = 10
+        btn.layer.borderWidth = 1
+        btn.layer.borderColor = UIColor(red: 0, green: 1, blue: 0.4, alpha: 0.12).cgColor
+        return btn
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 1.0)
@@ -57,18 +90,47 @@ final class HomeViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentStack)
 
+        let headerContainer = UIView()
+        headerContainer.translatesAutoresizingMaskIntoConstraints = false
+
         let headerStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
         headerStack.axis = .vertical
         headerStack.spacing = 8
         headerStack.alignment = .center
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
 
-        contentStack.addArrangedSubview(headerStack)
-        contentStack.setCustomSpacing(32, after: headerStack)
+        headerContainer.addSubview(headerStack)
+        headerContainer.addSubview(pulseRing)
+        headerContainer.addSubview(pulseView)
+
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: headerContainer.topAnchor),
+            headerStack.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor),
+            headerStack.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor),
+            headerStack.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor),
+
+            pulseView.widthAnchor.constraint(equalToConstant: 10),
+            pulseView.heightAnchor.constraint(equalToConstant: 10),
+            pulseView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            pulseView.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+
+            pulseRing.widthAnchor.constraint(equalToConstant: 24),
+            pulseRing.heightAnchor.constraint(equalToConstant: 24),
+            pulseRing.centerXAnchor.constraint(equalTo: pulseView.centerXAnchor),
+            pulseRing.centerYAnchor.constraint(equalTo: pulseView.centerYAnchor),
+        ])
+
+        contentStack.addArrangedSubview(headerContainer)
+        contentStack.setCustomSpacing(32, after: headerContainer)
 
         for module in GolfModule.allCases {
             let card = makeModuleCard(module)
             contentStack.addArrangedSubview(card)
         }
+
+        contactButton.addTarget(self, action: #selector(contactTapped), for: .touchUpInside)
+        contentStack.addArrangedSubview(contactButton)
+        contentStack.setCustomSpacing(24, after: contentStack.arrangedSubviews[contentStack.arrangedSubviews.count - 2])
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -81,7 +143,44 @@ final class HomeViewController: UIViewController {
             contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -20),
             contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -32),
             contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -40),
+
+            contactButton.heightAnchor.constraint(equalToConstant: 44),
         ])
+
+        startPulseAnimation()
+    }
+
+    private func startPulseAnimation() {
+        UIView.animate(withDuration: 1.5, delay: 0, options: [.autoreverse, .repeat, .curveEaseInOut]) {
+            self.pulseView.alpha = 1.0
+            self.pulseView.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
+            self.pulseRing.alpha = 0.6
+            self.pulseRing.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
+        }
+    }
+
+    @objc private func contactTapped() {
+        guard MFMailComposeViewController.canSendMail() else {
+            let alert = UIAlertController(
+                title: "Email Not Available",
+                message: "Please set up a mail account to send feedback.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+
+        let composer = MFMailComposeViewController()
+        composer.mailComposeDelegate = self
+        composer.setToRecipients(["support@golfcoachnow.net"])
+        composer.setSubject("GolfCoachNow Feedback")
+        composer.setMessageBody("We'd love to hear from you. Tell us what's on your mind.\n\n", isHTML: false)
+        present(composer, animated: true)
+    }
+
+    func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+        controller.dismiss(animated: true)
     }
 
     private func makeModuleCard(_ module: GolfModule) -> UIView {
