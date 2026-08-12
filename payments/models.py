@@ -17,7 +17,7 @@ subscription tables could take the name. See subscription_models.py.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from datetime import date as date_type

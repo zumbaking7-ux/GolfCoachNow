@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from payments import stripe_gateway
-from payments.accounts import unlock_for_user, user_for_token
+from payments.accounts import unlock_for, user_for_token
 from payments.auth_routes import bearer_token
 from payments.config import settings
 from payments.db import get_session
@@ -32,7 +32,6 @@ from payments.service import (
     SOURCE_SUCCESS_REDIRECT,
     SOURCE_WEBHOOK,
     claim_event,
-    find_unlock,
     grant_unlock,
     mark_event_processed,
     read_checkout_session,
@@ -341,7 +340,7 @@ def unlock_status(
             detail="Send device_id, or an Authorization bearer token.",
         )
 
-    unlock = unlock_for_user(db, user) if user is not None else find_unlock(db, device_id)
+    unlock = unlock_for(db, user, device_id)
 
     # A one-time purchase wins over a subscription, and the order matters.
     # Someone who bought the app outright and later subscribed by mistake still
