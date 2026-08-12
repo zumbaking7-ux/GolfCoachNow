@@ -97,16 +97,6 @@ def find_unlock(session: Session, device_id: str) -> Unlock | None:
     return session.scalars(select(Unlock).where(Unlock.device_id == device_id)).first()
 
 
-def is_device_active(session: Session, device_id: str) -> tuple[bool, Subscription | None]:
-    sub = find_subscription(session, device_id)
-    if sub and sub.status in ACTIVE_STATUSES:
-        return True, sub
-    unlock = find_unlock(session, device_id)
-    if unlock:
-        return True, None
-    return False, None
-
-
 def grant_unlock(session: Session, checkout: CheckoutDetails, source: str) -> bool:
     if not checkout.paid:
         raise ValueError(f"refusing to unlock an unpaid session {checkout.session_id}")
