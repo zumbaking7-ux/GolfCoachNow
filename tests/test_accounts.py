@@ -299,15 +299,22 @@ def test_a_made_up_token_is_ignored(client):
 
 
 def test_the_device_path_still_works_untouched(client):
-    """The shipped app sends no token. It must behave exactly as before."""
+    """The shipped app sends no token. It must behave exactly as before.
+
+    The three subscription fields are additions, not changes. `unlocked` still
+    means the same thing and still comes back in the same place, which is the
+    part the installed app reads. Both clients ignore keys they do not know -
+    Android sets ignoreUnknownKeys explicitly and Swift's Decodable does it by
+    default - so the extra fields cost the shipped version nothing.
+    """
     response = client.get(f"/payments/unlock-status?device_id={DEVICE_ID}")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "device_id": DEVICE_ID,
-        "unlocked": False,
-        "unlocked_at": None,
-    }
+    body = response.json()
+    assert body["device_id"] == DEVICE_ID
+    assert body["unlocked"] is False
+    assert body["unlocked_at"] is None
+    assert body["plan"] == "none"
 
 
 def test_neither_token_nor_device_is_a_422(client):

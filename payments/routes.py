@@ -18,6 +18,9 @@ from payments.db import get_session
 from payments.logging_config import fields, get_logger
 from payments.rate_limit import rate_limit
 from payments.schemas import (
+    PLAN_LIFETIME,
+    PLAN_MONTHLY,
+    PLAN_NONE,
     CheckoutSessionRequest,
     CheckoutSessionResponse,
     SubscribeRequest,
@@ -257,25 +260,43 @@ def unlock_status(
     screens can arrive whenever the app team is ready.
     """
     user = user_for_token(db, bearer_token(request))
-    if user is not None:
-        unlock = unlock_for_user(db, user)
-        return UnlockStatusResponse(
-            device_id=device_id or "",
-            unlocked=unlock is not None,
-            unlocked_at=unlock.created_at if unlock else None,
-        )
 
-    if not device_id:
+    if user is None and not device_id:
         raise HTTPException(
             status_code=422,
             detail="Send device_id, or an Authorization bearer token.",
         )
 
-    unlock = find_unlock(db, device_id)
+    unlock = unlock_for_user(db, user) if user is not None else find_unlock(db, device_id)
+
+    # A one-time purchase wins over a subscription, and the order matters.
+    # Someone who bought the app outright and later subscribed by mistake still
+    # owns it, and reporting them as monthly would put an expiry date on
+    # something that does not expire and show a cancel button that takes away
+    # nothing. Grandfathering is this line, not a feature.
+    if unlock is not None:
+        return UnlockStatusResponse(
+            device_id=device_id or "",
+            unlocked=True,
+            unlocked_at=unlock.created_at,
+            plan=PLAN_LIFETIME,
+        )
+
+    subscription = active_subscription(db, user=user, device_id=device_id)
+    if subscription is not None:
+        return UnlockStatusResponse(
+            device_id=device_id or "",
+            unlocked=True,
+            unlocked_at=subscription.created_at,
+            plan=PLAN_MONTHLY,
+            expires_at=subscription.current_period_end,
+            cancel_at_period_end=subscription.cancel_at_period_end,
+        )
+
     return UnlockStatusResponse(
-        device_id=device_id,
-        unlocked=unlock is not None,
-        unlocked_at=unlock.created_at if unlock else None,
+        device_id=device_id or "",
+        unlocked=False,
+        plan=PLAN_NONE,
     )
 
 

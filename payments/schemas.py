@@ -146,8 +146,24 @@ class VerifyCodeResponse(BaseModel):
     )
 
 
+PLAN_NONE = "none"
+PLAN_LIFETIME = "lifetime"
+PLAN_MONTHLY = "monthly"
+
+
 class UnlockStatusResponse(BaseModel):
-    """The authoritative answer to whether a device has paid."""
+    """The authoritative answer to whether someone has access.
+
+    Three fields are new for subscriptions and all three are additions. The
+    meaning of `unlocked` is unchanged - it still answers "may this person use
+    the paid features right now" - so the version of the app already in the
+    store keeps working the day this deploys, reading the one field it knows
+    about and ignoring the rest.
+
+    Changing the shape instead would have been tidier and would have broken
+    every installed copy at once, which is not a trade worth making to avoid
+    three fields.
+    """
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -155,12 +171,45 @@ class UnlockStatusResponse(BaseModel):
                 "device_id": "8f14e45fceea167a",
                 "unlocked": True,
                 "unlocked_at": "2026-08-09T18:24:11Z",
+                "plan": "monthly",
+                "expires_at": "2026-09-09T18:24:11Z",
+                "cancel_at_period_end": False,
             }
         }
     )
 
     device_id: str
-    unlocked: bool = Field(description="True only when a paid payment is recorded for this device.")
+    unlocked: bool = Field(
+        description=(
+            "May this person use the paid features right now. True for a "
+            "one-time purchase, and for a subscription whose paid period has "
+            "not run out. Read this, not plan or expires_at, to decide what to "
+            "show."
+        )
+    )
     unlocked_at: datetime | None = Field(
         default=None, description="When the unlock was recorded. Null when not unlocked."
+    )
+    plan: str = Field(
+        default=PLAN_NONE,
+        description=(
+            "'lifetime' for the one-time purchase, 'monthly' for a "
+            "subscription, 'none' when there is no access. Use it for what the "
+            "billing screen says, not for whether to unlock anything."
+        ),
+    )
+    expires_at: datetime | None = Field(
+        default=None,
+        description=(
+            "When monthly access runs out unless it renews. Null for lifetime "
+            "and for no access, because neither one expires."
+        ),
+    )
+    cancel_at_period_end: bool = Field(
+        default=False,
+        description=(
+            "They have cancelled but already paid for the period they are in, "
+            "so access continues until expires_at. Worth saying so on the "
+            "billing screen rather than letting it end without warning."
+        ),
     )
