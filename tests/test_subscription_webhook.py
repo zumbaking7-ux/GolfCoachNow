@@ -81,8 +81,20 @@ def test_a_one_time_checkout_still_grants_an_unlock(client, db_session):
     assert unlock is not None
 
 
-def test_a_checkout_with_no_mode_is_not_unlocked(client, db_session):
-    """Anything unrecognised must not fall through into the one-time path."""
+def test_a_checkout_with_no_mode_is_treated_as_one_time(client, db_session):
+    """Records the behaviour rather than endorsing it.
+
+    Only subscription mode is recognised, so anything else - including a
+    payload with no mode at all - takes the one-time path and unlocks. That is
+    the shipped behaviour and changing it would be a bigger decision than it
+    looks: every real checkout.session.completed carries a mode, and refusing
+    the ones that somehow do not would deny unlocks to people who have paid.
+
+    This test exists so the choice is visible. An earlier version of it was
+    named ..._is_not_unlocked and asserted the opposite of what it checked,
+    which is a worse failure than having no test, because the name is what
+    later readers believe.
+    """
     event = load_event()
     event["id"] = "evt_modeless"
     obj = event["data"]["object"]

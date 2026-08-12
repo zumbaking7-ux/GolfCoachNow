@@ -45,6 +45,7 @@ from payments.accounts_models import (  # noqa: E402
 from payments.auth_routes import router as auth_router  # noqa: E402
 from payments.db import SessionFactory, engine  # noqa: E402
 from payments.models import ProcessedEvent, Unlock  # noqa: E402
+from payments.subscription_models import UserSubscription  # noqa: E402
 from payments.routes import router as payments_router  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -92,6 +93,7 @@ def clean_tables():
     with SessionFactory() as session:
         # Children before parents: auth_tokens and user_devices both reference
         # users, so users cannot go first.
+        session.query(UserSubscription).delete()
         session.query(AuthToken).delete()
         session.query(UserDevice).delete()
         session.query(LoginCode).delete()
@@ -100,6 +102,27 @@ def clean_tables():
         session.query(ProcessedEvent).delete()
         session.commit()
     yield
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    """Give every test its own empty limiter.
+
+    The limiter is module level state shared by every endpoint behind it, and
+    the whole suite calls from the same client address. Without this, tests
+    accumulate hits against one bucket and whichever test happens to run
+    thirtieth starts getting 429s. That failure moves as soon as tests are
+    added, reordered or run with -k, which makes it look like flakiness rather
+    than the deterministic thing it is.
+
+    Clearing the internal dict rather than rebuilding the object, because the
+    dependency closes over this instance.
+    """
+    from payments.rate_limit import _limiter
+
+    _limiter._hits.clear()
+    yield
+    _limiter._hits.clear()
 
 
 @pytest.fixture

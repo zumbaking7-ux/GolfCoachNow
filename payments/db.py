@@ -7,7 +7,7 @@ on both.
 
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from payments.config import settings
@@ -32,6 +32,26 @@ engine = create_engine(
     pool_pre_ping=True,
     **_engine_options(settings.database_url),
 )
+
+if settings.database_url.startswith(SQLITE_SCHEME):
+
+    @event.listens_for(engine, "connect")
+    def _enforce_foreign_keys(connection, _record) -> None:
+        """SQLite ignores foreign keys unless each connection asks it not to.
+
+        Off by default for backward compatibility, and the setting is per
+        connection rather than per database, so it has to be set here rather
+        than once in a migration.
+
+        Without it every ForeignKey in this package is a comment. A
+        subscription could point at a user ID that was never created and
+        nothing would object until someone tried to read it back and found
+        nobody there.
+        """
+        cursor = connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 SessionFactory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 

@@ -32,6 +32,7 @@ from payments.service import (
     mark_event_processed,
     read_checkout_session,
 )
+from payments.subscription_service import active_subscription
 from payments.subscriptions import read_invoice_event, read_subscription_event
 
 logger = get_logger("routes")
@@ -88,6 +89,7 @@ def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionRes
     responses={
         429: {"description": "Too many requests from this address."},
         502: {"description": "Stripe could not be reached."},
+        409: {"description": "Already subscribed."},
         503: {"description": "No recurring price is configured yet."},
     },
 )
@@ -115,6 +117,29 @@ def open_subscription(
         )
 
     user = user_for_token(db, bearer_token(request))
+
+    # Somebody who is already subscribed must not be sold a second one. Stripe
+    # will happily create it, along with a second customer, and charge them
+    # twice a month for one product. Refunds and a chargeback follow, and the
+    # app has no way to show them which of the two to cancel.
+    #
+    # 409 rather than a silent redirect: the app should send them to the
+    # billing portal to manage what they have, not quietly do nothing when they
+    # tapped a button.
+    existing = active_subscription(db, user=user, device_id=payload.device_id)
+    if existing is not None:
+        logger.info(
+            "subscribe declined, already subscribed %s",
+            fields(
+                device_id=payload.device_id,
+                user_id=user.id if user else None,
+                subscription=existing.stripe_subscription_id,
+            ),
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="This account already has an active subscription.",
+        )
 
     try:
         checkout_session = stripe_gateway.create_subscription_checkout_session(
@@ -300,14 +325,16 @@ def _handle_checkout_completed(db: Session, event_id: str, obj) -> None:
 def _handle_subscription_checkout(db: Session, event_id: str, obj) -> None:
     """Someone started a monthly plan.
 
-    Nothing is recorded yet, and that is deliberate rather than unfinished. The
-    subscription tables are not in the schema, and the table name is still with
-    the owner of models.py. Granting the permanent unlock in the meantime would
-    be worse than recording nothing.
+    The subscription is not written here yet. The customer.subscription.*
+    events carry the same subscription with its status and period end, and
+    recording it from two places would mean two chances to disagree about the
+    same row.
 
-    Nothing reaches here in production either, because the subscribe endpoint
-    is closed until a recurring price is configured. If this line ever appears
-    in the log it means that changed and the storage did not follow.
+    What matters is that this does not fall into the one-time path. Granting a
+    permanent unlock is the failure that costs money; recording nothing is not.
+
+    Nothing reaches here in production yet, because the subscribe endpoint is
+    closed until a recurring price is configured.
     """
     logger.warning(
         "subscription checkout completed, not yet recorded %s",
@@ -352,6 +379,11 @@ def _handle_subscription_change(db: Session, event_id: str, obj) -> None:
 # One handler per event type, and the set of types we accept is taken from the
 # keys. Adding an event to the map is the only thing needed to start handling
 # it, and there is no second list to forget to update.
+#
+# Every handler takes (db, event_id, obj) whether or not it uses all three.
+# They are called through this map, so their signatures have to match; the ones
+# that ignore db today write to it as soon as storage lands behind them. The
+# unused parameter is the price of a uniform dispatch, not an oversight.
 EVENT_HANDLERS = {
     CHECKOUT_SESSION_COMPLETED: _handle_checkout_completed,
     INVOICE_PAID: _handle_invoice,
