@@ -38,6 +38,37 @@ Step 5 matters. The deep link only says the browser came back, not that a
 payment succeeded. Anyone can open a deep link. The server's answer is the only
 thing that means anything.
 
+### Retry that first check, and do not show "not subscribed" on one negative
+
+The subscription is recorded when `customer.subscription.created` arrives, not
+when checkout finishes. Those are separate webhooks and they land a moment
+apart. Measured on a real payment: `checkout.session.completed` at 22:12:54,
+`customer.subscription.created` at 22:12:55.
+
+About a second, and the deep link fires inside it. So an app that asks once,
+immediately, can get `"unlocked": false` for somebody who has just paid, and
+show them an upgrade screen for the thing they bought thirty seconds ago.
+
+Ask two or three times, roughly a second apart, and only believe a negative
+after that:
+
+    check unlock-status
+    if unlocked -> done
+    wait ~1s, check again
+    if unlocked -> done
+    wait ~1s, check once more
+    still not unlocked -> now show the unsubscribed state
+
+The window is short and the cost of getting it wrong is a paying customer being
+told they have not paid, so a couple of extra requests is a cheap trade.
+
+Recording the subscription at checkout instead would remove the window and
+create a worse problem: two code paths writing the same row, able to disagree
+about its status. One writer is worth a second of latency.
+
+This applies to the checkout return only. Ordinary launch and foreground checks
+need no retry, because by then any webhook has long since arrived.
+
 ## Endpoints
 
 ### POST /payments/subscribe
@@ -127,6 +158,10 @@ Unchanged otherwise: 200 for everyone, 422 only when neither a token nor a
 device ID is sent, and a token covers every device that person has linked.
 
 ## What the app has to do
+
+**Retry the check after checkout.** Covered above: the subscription lands a
+moment after the deep link fires, so one immediate negative answer is not proof
+of anything.
 
 **Re-check on foreground, not only at launch.** A subscription ends on Stripe's
 clock, not on the app's. If the only check is at cold start, somebody who
