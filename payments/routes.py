@@ -32,7 +32,11 @@ from payments.service import (
     mark_event_processed,
     read_checkout_session,
 )
-from payments.subscription_service import active_subscription
+from payments.subscription_service import (
+    active_subscription,
+    record_invoice,
+    record_subscription,
+)
 from payments.subscriptions import read_invoice_event, read_subscription_event
 
 logger = get_logger("routes")
@@ -42,6 +46,7 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 CHECKOUT_SESSION_COMPLETED = "checkout.session.completed"
 INVOICE_PAID = "invoice.paid"
 INVOICE_PAYMENT_FAILED = "invoice.payment_failed"
+SUBSCRIPTION_CREATED = "customer.subscription.created"
 SUBSCRIPTION_UPDATED = "customer.subscription.updated"
 SUBSCRIPTION_DELETED = "customer.subscription.deleted"
 
@@ -347,33 +352,47 @@ def _handle_subscription_checkout(db: Session, event_id: str, obj) -> None:
 
 
 def _handle_invoice(db: Session, event_id: str, obj) -> None:
-    """A renewal was paid, or failed to be."""
+    """A renewal was paid, or failed to be.
+
+    This is what makes a subscription actually renew. Without it the period end
+    stays where checkout left it and everybody lapses after one month, having
+    paid for more.
+    """
     payment = read_invoice_event(obj)
-    logger.warning(
-        "subscription invoice received, not yet recorded %s",
-        fields(
-            event_id=event_id,
-            invoice=payment.invoice_id,
-            subscription=payment.stripe_subscription_id,
-            paid=payment.paid,
-            ours=payment.is_ours,
-        ),
-    )
+    subscription = record_invoice(db, payment)
+
+    if subscription is None:
+        logger.info(
+            "invoice not applied %s",
+            fields(
+                event_id=event_id,
+                invoice=payment.invoice_id,
+                subscription=payment.stripe_subscription_id,
+                paid=payment.paid,
+            ),
+        )
 
 
 def _handle_subscription_change(db: Session, event_id: str, obj) -> None:
-    """A subscription changed status, or ended."""
+    """A subscription was created, changed status, or ended.
+
+    This is the only place a subscription's status is written. An invoice says
+    what was paid for; only these events carry Stripe's own view of whether the
+    subscription is alive, so keeping the two jobs apart means they cannot
+    disagree about the same row.
+    """
     state = read_subscription_event(obj)
-    logger.warning(
-        "subscription change received, not yet recorded %s",
-        fields(
-            event_id=event_id,
-            subscription=state.stripe_subscription_id,
-            status=state.status,
-            active=state.is_active,
-            cancelling=state.cancel_at_period_end,
-        ),
-    )
+    recorded = record_subscription(db, state)
+
+    if recorded is None:
+        logger.info(
+            "subscription change not applied %s",
+            fields(
+                event_id=event_id,
+                subscription=state.stripe_subscription_id,
+                status=state.status,
+            ),
+        )
 
 
 # One handler per event type, and the set of types we accept is taken from the
@@ -388,6 +407,7 @@ EVENT_HANDLERS = {
     CHECKOUT_SESSION_COMPLETED: _handle_checkout_completed,
     INVOICE_PAID: _handle_invoice,
     INVOICE_PAYMENT_FAILED: _handle_invoice,
+    SUBSCRIPTION_CREATED: _handle_subscription_change,
     SUBSCRIPTION_UPDATED: _handle_subscription_change,
     SUBSCRIPTION_DELETED: _handle_subscription_change,
 }
