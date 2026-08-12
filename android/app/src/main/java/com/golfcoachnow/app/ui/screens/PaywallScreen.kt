@@ -85,7 +85,6 @@ fun PaywallScreen(
         FeatureRow(Icons.Default.SportsGolf, "Unlimited swing analysis")
         FeatureRow(Icons.Default.GolfCourse, "Unlimited putting analysis")
         FeatureRow(Icons.Default.Landscape, "Unlimited short game analysis")
-        FeatureRow(Icons.Default.GraphicEq, "Talk Mode voice coaching")
         FeatureRow(Icons.Default.Share, "Share corrections")
         FeatureRow(Icons.AutoMirrored.Filled.TrendingUp, "Performance tracking")
 

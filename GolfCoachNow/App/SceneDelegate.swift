@@ -18,6 +18,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
 
         EntitlementManager.shared.checkRemoteStatus()
+        APIClient.shared.trackEvent("app_open")
 
         if let url = connectionOptions.urlContexts.first?.url {
             handleDeepLink(url)

@@ -163,6 +163,7 @@ final class HomeViewController: UIViewController {
             }
         }
 
+        APIClient.shared.trackEvent("module_selected", module: module)
         let cameraVC = CameraViewController(module: module)
         navigationController?.pushViewController(cameraVC, animated: true)
     }

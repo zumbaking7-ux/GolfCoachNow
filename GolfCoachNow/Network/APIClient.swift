@@ -239,6 +239,47 @@ final class APIClient {
         }
     }
 
+    // MARK: - Analytics
+
+    func trackEvent(_ name: String, module: GolfModule? = nil) {
+        guard let url = URL(string: APIConfig.baseURL + "/analytics/event") else { return }
+
+        var payload: [String: String] = [
+            "device_id": EntitlementManager.shared.deviceId,
+            "event_name": name,
+            "platform": "ios",
+        ]
+        if let module { payload["module"] = module.uploadModuleParam }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        session.dataTask(with: request) { _, _, _ in }.resume()
+    }
+
+    // MARK: - Performance
+
+    func fetchHistory(module: GolfModule, completion: @escaping (Result<PerformanceHistory, Error>) -> Void) {
+        guard var components = URLComponents(string: APIConfig.baseURL + "/performance/history") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "device_id", value: EntitlementManager.shared.deviceId),
+            URLQueryItem(name: "module", value: module.uploadModuleParam),
+            URLQueryItem(name: "limit", value: "20"),
+        ]
+        guard let url = components.url else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+        session.dataTask(with: URLRequest(url: url)) { data, response, error in
+            self.handleDecodable(data: data, response: response, error: error, completion: completion)
+        }.resume()
+    }
+
     private func mimeType(for url: URL) -> String {
         switch url.pathExtension.lowercased() {
         case "mov": return "video/quicktime"

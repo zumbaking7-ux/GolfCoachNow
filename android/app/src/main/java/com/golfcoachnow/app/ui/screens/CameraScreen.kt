@@ -213,15 +213,8 @@ fun CameraScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Talk button
-            IconButton(
-                onClick = onTalkMode,
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(GolfGreen, CircleShape),
-            ) {
-                Icon(Icons.Default.GraphicEq, "Talk Mode", tint = Color.White)
-            }
+            // Talk button hidden until V1.1 Talk Mode contract
+            Spacer(Modifier.size(56.dp))
 
             // Record button
             IconButton(
@@ -261,6 +254,7 @@ fun CameraScreen(
                                                 result.onSuccess { resp ->
                                                     correction = resp
                                                     statusText = ""
+                                                    ApiClient.trackEvent("rep_completed", module)
                                                 }.onFailure { err ->
                                                     if (err is ApiException && err.code == 403) {
                                                         onPaywall()
