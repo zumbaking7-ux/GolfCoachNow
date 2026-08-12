@@ -146,6 +146,40 @@ class VerifyCodeResponse(BaseModel):
     )
 
 
+class BillingPortalRequest(BaseModel):
+    """Ask for a link to Stripe's subscription management page."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"device_id": "8f14e45fceea167a"}}
+    )
+
+    device_id: str | None = Field(
+        default=None,
+        max_length=DEVICE_ID_MAX_LENGTH,
+        description=(
+            "Optional when a bearer token is sent. One of the two is required, "
+            "since the server has to know whose subscription to open."
+        ),
+    )
+
+
+class BillingPortalResponse(BaseModel):
+    """Where to send them to manage their subscription."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"portal_url": "https://billing.stripe.com/p/session/test_abc123"}
+        }
+    )
+
+    portal_url: str = Field(
+        description=(
+            "Open in a browser. Single use and short lived, so request a fresh "
+            "one each time rather than caching it."
+        )
+    )
+
+
 PLAN_NONE = "none"
 PLAN_LIFETIME = "lifetime"
 PLAN_MONTHLY = "monthly"

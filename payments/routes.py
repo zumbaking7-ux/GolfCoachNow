@@ -21,6 +21,8 @@ from payments.schemas import (
     PLAN_LIFETIME,
     PLAN_MONTHLY,
     PLAN_NONE,
+    BillingPortalRequest,
+    BillingPortalResponse,
     CheckoutSessionRequest,
     CheckoutSessionResponse,
     SubscribeRequest,
@@ -174,6 +176,74 @@ def open_subscription(
         checkout_url=checkout_session.url,
         session_id=checkout_session.id,
     )
+
+
+@router.post(
+    "/billing-portal",
+    response_model=BillingPortalResponse,
+    summary="Link to Stripe's subscription management page",
+    dependencies=[Depends(rate_limit)],
+    responses={
+        404: {"description": "No subscription to manage."},
+        422: {"description": "Neither a token nor device_id was sent."},
+        429: {"description": "Too many requests from this address."},
+        502: {"description": "Stripe could not be reached."},
+    },
+)
+def open_billing_portal(
+    payload: BillingPortalRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> BillingPortalResponse:
+    """Hand back a URL where someone can cancel or update their card.
+
+    The customer ID is looked up from the caller's own subscription and never
+    taken from the request. Accepting one would let anybody who guessed or
+    scraped a cus_ identifier open a portal session for a stranger and cancel
+    their subscription or read their invoices and billing address. It is the
+    kind of parameter that looks harmless because Stripe requires it.
+
+    Everything the portal offers - cancelling, changing a card, downloading
+    invoices - carries dunning, proration and tax rules that would have to be
+    rebuilt here and kept correct. Getting those wrong shows up as money.
+    """
+    user = user_for_token(db, bearer_token(request))
+
+    if user is None and not payload.device_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Send device_id, or an Authorization bearer token.",
+        )
+
+    subscription = active_subscription(db, user=user, device_id=payload.device_id)
+    if subscription is None:
+        # Deliberately the same answer whether they never subscribed or their
+        # subscription ended. Neither one has anything to manage, and the
+        # difference is not something an unauthenticated caller should learn.
+        raise HTTPException(status_code=404, detail="No subscription to manage.")
+
+    try:
+        portal = stripe_gateway.create_billing_portal_session(
+            subscription.stripe_customer_id
+        )
+    except stripe.StripeError as error:
+        logger.error(
+            "could not open billing portal %s",
+            fields(
+                subscription=subscription.stripe_subscription_id,
+                error=type(error).__name__,
+            ),
+        )
+        raise HTTPException(status_code=502, detail="Could not reach Stripe.") from error
+
+    logger.info(
+        "billing portal opened %s",
+        fields(
+            subscription=subscription.stripe_subscription_id,
+            user_id=user.id if user else None,
+        ),
+    )
+    return BillingPortalResponse(portal_url=portal.url)
 
 
 @router.get(
