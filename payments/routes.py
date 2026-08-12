@@ -20,6 +20,7 @@ from payments.rate_limit import rate_limit
 from payments.schemas import (
     CheckoutSessionRequest,
     CheckoutSessionResponse,
+    SubscribeRequest,
     UnlockStatusResponse,
 )
 from payments.service import (
@@ -72,6 +73,69 @@ def open_checkout_session(payload: CheckoutSessionRequest) -> CheckoutSessionRes
     logger.info(
         "checkout session created %s",
         fields(device_id=payload.device_id, session_id=checkout_session.id),
+    )
+    return CheckoutSessionResponse(
+        checkout_url=checkout_session.url,
+        session_id=checkout_session.id,
+    )
+
+
+@router.post(
+    "/subscribe",
+    response_model=CheckoutSessionResponse,
+    summary="Start a monthly subscription",
+    dependencies=[Depends(rate_limit)],
+    responses={
+        429: {"description": "Too many requests from this address."},
+        502: {"description": "Stripe could not be reached."},
+        503: {"description": "No recurring price is configured yet."},
+    },
+)
+def open_subscription(
+    payload: SubscribeRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> CheckoutSessionResponse:
+    """Open Checkout for the monthly plan.
+
+    A bearer token is optional but changes what the subscription is attached
+    to. Signed in, it hangs off the account and follows the person to a new
+    phone. Not signed in, the device is the only handle we have, and losing the
+    device loses the subscription. The app should ask for sign in before this
+    screen rather than after.
+
+    503 rather than 500 when no price is configured. Nothing is broken; the
+    plan is not on sale yet, and that is a different thing to tell a customer.
+    """
+    if not settings.subscriptions_enabled:
+        logger.error("subscribe called with no recurring price configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Subscriptions are not available yet.",
+        )
+
+    user = user_for_token(db, bearer_token(request))
+
+    try:
+        checkout_session = stripe_gateway.create_subscription_checkout_session(
+            device_id=payload.device_id,
+            user_id=user.id if user else None,
+            customer_email=user.email if user else None,
+        )
+    except stripe.StripeError as error:
+        logger.error(
+            "could not create subscription session %s",
+            fields(device_id=payload.device_id, error=type(error).__name__),
+        )
+        raise HTTPException(status_code=502, detail="Could not reach Stripe.") from error
+
+    logger.info(
+        "subscription session created %s",
+        fields(
+            device_id=payload.device_id,
+            user_id=user.id if user else None,
+            session_id=checkout_session.id,
+        ),
     )
     return CheckoutSessionResponse(
         checkout_url=checkout_session.url,

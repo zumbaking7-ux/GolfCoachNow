@@ -63,6 +63,26 @@ class CheckoutSessionResponse(BaseModel):
     session_id: str = Field(description="Stripe Checkout Session ID, useful for support.")
 
 
+class SubscribeRequest(BaseModel):
+    """Sent by the app when the user taps subscribe.
+
+    Same device_id as the one-time flow. Send the bearer token too if the
+    person is signed in: a subscription belongs to an account rather than to a
+    handset, so a signed in subscriber can restore on a new phone and one who
+    was not can only be found by the device that paid.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"device_id": "8f14e45fceea167a"}}
+    )
+
+    device_id: str = Field(
+        min_length=1,
+        max_length=DEVICE_ID_MAX_LENGTH,
+        description="The device's own identifier, same as the one-time flow.",
+    )
+
+
 class RequestCodeRequest(BaseModel):
     """Ask for a sign in code."""
 
