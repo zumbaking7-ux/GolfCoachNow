@@ -36,6 +36,13 @@ from alembic.config import Config  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from payments.accounts_models import (  # noqa: E402
+    AuthToken,
+    LoginCode,
+    User,
+    UserDevice,
+)
+from payments.auth_routes import router as auth_router  # noqa: E402
 from payments.db import SessionFactory, engine  # noqa: E402
 from payments.models import ProcessedEvent, Unlock  # noqa: E402
 from payments.routes import router as payments_router  # noqa: E402
@@ -54,6 +61,7 @@ def build_payments_app() -> FastAPI:
     """
     app = FastAPI()
     app.include_router(payments_router)
+    app.include_router(auth_router)
     return app
 
 
@@ -82,6 +90,12 @@ def migrated_database():
 def clean_tables():
     """Give every test an empty database without rebuilding the schema."""
     with SessionFactory() as session:
+        # Children before parents: auth_tokens and user_devices both reference
+        # users, so users cannot go first.
+        session.query(AuthToken).delete()
+        session.query(UserDevice).delete()
+        session.query(LoginCode).delete()
+        session.query(User).delete()
         session.query(Unlock).delete()
         session.query(ProcessedEvent).delete()
         session.commit()

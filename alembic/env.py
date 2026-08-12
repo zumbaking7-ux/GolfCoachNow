@@ -14,6 +14,11 @@ from sqlalchemy import engine_from_config, pool
 
 from payments.models import Base
 
+# Imported for its side effect: defining the classes registers the accounts
+# tables on Base.metadata, which is what autogenerate compares against. Without
+# this line those tables are invisible to Alembic.
+import payments.accounts_models  # noqa: F401,E402
+
 config = context.config
 
 if config.config_file_name is not None:

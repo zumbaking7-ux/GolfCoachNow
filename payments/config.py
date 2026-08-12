@@ -6,10 +6,14 @@ malformed variable stops the process at startup rather than surfacing hours
 later as a failed webhook.
 """
 
-from pydantic import ValidationError, field_validator
+from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_URL_SCHEMES = ("http://", "https://")
+
+PROVIDER_CONSOLE = "console"
+PROVIDER_RESEND = "resend"
+EMAIL_PROVIDERS = frozenset({PROVIDER_CONSOLE, PROVIDER_RESEND})
 
 
 class Settings(BaseSettings):
@@ -38,6 +42,48 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 60
 
+    # --- Accounts -------------------------------------------------------
+    # How login codes are delivered. "console" writes the code to the log and
+    # sends nothing, which is for local work only. Production must set a real
+    # provider or nobody can sign in.
+    email_provider: str = "console"
+    email_from: str = "Golf Coach Now <onboarding@resend.dev>"
+    resend_api_key: str = ""
+
+    # Six digits is short enough to type from a notification and long enough
+    # that guessing is pointless once attempts are capped.
+    login_code_length: int = 6
+    login_code_ttl_minutes: int = 10
+    login_code_max_attempts: int = 5
+
+    # Much tighter than the general limit, because this endpoint sends email.
+    # Counted per caller and separately per email address, so neither one
+    # person can mail the world nor the world mail one person.
+    auth_rate_limit_requests: int = 5
+    auth_rate_limit_window_seconds: int = 300
+
+    @field_validator("email_provider")
+    @classmethod
+    def must_be_a_known_provider(cls, value: str) -> str:
+        provider = value.strip().lower()
+        if provider not in EMAIL_PROVIDERS:
+            raise ValueError(
+                f"EMAIL_PROVIDER must be one of {', '.join(sorted(EMAIL_PROVIDERS))}"
+            )
+        return provider
+
+    @model_validator(mode="after")
+    def resend_needs_a_key(self) -> "Settings":
+        """Fail at startup rather than on the first person trying to sign in.
+
+        A provider selected without its credentials is the same class of
+        problem as a missing Stripe key: everything looks fine until someone
+        real is stuck at a login screen.
+        """
+        if self.email_provider == PROVIDER_RESEND and not self.resend_api_key:
+            raise ValueError("RESEND_API_KEY is required when EMAIL_PROVIDER is resend")
+        return self
+
     @field_validator("public_base_url")
     @classmethod
     def must_be_a_web_url(cls, value: str) -> str:
@@ -54,6 +100,18 @@ class Settings(BaseSettings):
         return value.rstrip("/")
 
 
+def _setting_name(detail: dict) -> str:
+    """Name the setting at fault.
+
+    A field validator reports which field it was. A validator that checks the
+    whole model, like the one pairing a provider with its key, reports no
+    location at all. Fall back to a label rather than crashing while trying to
+    explain a configuration problem.
+    """
+    location = detail.get("loc") or ()
+    return str(location[0]).upper() if location else "CONFIGURATION"
+
+
 def _configuration_error(error: ValidationError) -> str:
     """Turn a validation failure into something a person can act on.
 
@@ -62,8 +120,7 @@ def _configuration_error(error: ValidationError) -> str:
     and where to set them without anyone having to read this file.
     """
     problems = "\n".join(
-        f"  - {str(detail['loc'][0]).upper()}: {detail['msg']}"
-        for detail in error.errors()
+        f"  - {_setting_name(detail)}: {detail['msg']}" for detail in error.errors()
     )
     return (
         "\n\nPayments configuration is incomplete, so the application will not "
