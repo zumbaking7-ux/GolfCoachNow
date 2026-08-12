@@ -99,6 +99,78 @@ def test_a_checkout_with_no_mode_is_not_unlocked(client, db_session):
     ), "a missing mode is treated as one-time, which is the shipped behaviour"
 
 
+# --- the same hole, in the other path ----------------------------------------
+#
+# The webhook is not the only thing that grants an unlock. The success redirect
+# does too, and it was missed the first time because the test above only fired
+# the webhook. A real subscription payment came back through the redirect and
+# was given a permanent unlock, with source=success_redirect in the log.
+#
+# Both paths get the same test now.
+
+
+def test_the_success_redirect_does_not_unlock_a_subscription(
+    client, db_session, monkeypatch
+):
+    """What actually happened, turned into a test.
+
+    Stripe sends the browser to /payments/success after payment. That endpoint
+    retrieves the session and unlocks on its own, which is correct and
+    deliberate for a one-time purchase. For a subscription it hands over the
+    whole product for one month's money.
+    """
+    session_object = load_event()["data"]["object"]
+    session_object["mode"] = "subscription"
+    session_object["subscription"] = "sub_from_redirect"
+    session_object["client_reference_id"] = "device_redirect_subscriber"
+
+    monkeypatch.setattr(
+        "payments.routes.stripe_gateway.retrieve_checkout_session",
+        lambda session_id: session_object,
+    )
+
+    response = client.get(
+        "/payments/success",
+        params={"session_id": session_object["id"]},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert (
+        db_session.query(Unlock)
+        .filter(Unlock.device_id == "device_redirect_subscriber")
+        .first()
+        is None
+    ), "the success redirect granted a permanent unlock for a monthly plan"
+
+
+def test_the_success_redirect_still_unlocks_a_one_time_purchase(
+    client, db_session, monkeypatch
+):
+    """The behaviour that ships today has to survive the fix."""
+    session_object = load_event()["data"]["object"]
+    session_object["client_reference_id"] = "device_redirect_buyer"
+
+    monkeypatch.setattr(
+        "payments.routes.stripe_gateway.retrieve_checkout_session",
+        lambda session_id: session_object,
+    )
+
+    response = client.get(
+        "/payments/success",
+        params={"session_id": session_object["id"]},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert (
+        db_session.query(Unlock)
+        .filter(Unlock.device_id == "device_redirect_buyer")
+        .first()
+        is not None
+    )
+
+
 # --- the four real subscription events ---------------------------------------
 
 

@@ -104,6 +104,16 @@ def payment_success(
         )
         raise HTTPException(status_code=502, detail="Could not reach Stripe.") from error
 
+    if is_subscription_checkout(checkout_session):
+        # They paid, so they still go back into the app. What must not happen
+        # is a permanent unlock: this is a month, not the product. The webhook
+        # is what records subscription access.
+        logger.info(
+            "subscription checkout returned through the redirect %s",
+            fields(session_id=session_id),
+        )
+        return RedirectResponse(settings.success_deep_link, status_code=SEE_OTHER)
+
     checkout = read_checkout_session(checkout_session)
     if checkout.can_unlock:
         grant_unlock(db, checkout, SOURCE_SUCCESS_REDIRECT)
@@ -175,6 +185,20 @@ def unlock_status(
     )
 
 
+def is_subscription_checkout(checkout_session) -> bool:
+    """Whether this session bought a month rather than the app.
+
+    Two code paths act on a completed checkout: this webhook and the success
+    redirect. Both call grant_unlock, so both have to ask this question, and
+    getting it right in only one of them is the same bug with half the surface.
+    That is not hypothetical - it is what happened, and it took a real payment
+    through the redirect to find it, because the first fix only covered the
+    webhook and its test only fired the webhook.
+    """
+    mode = checkout_session["mode"] if "mode" in checkout_session else None
+    return mode == CHECKOUT_MODE_SUBSCRIPTION
+
+
 def _handle_checkout_completed(db: Session, event_id: str, obj) -> None:
     """A checkout finished. Which kind decides everything that follows.
 
@@ -189,9 +213,7 @@ def _handle_checkout_completed(db: Session, event_id: str, obj) -> None:
     on a one-time mode, and why anything unrecognised falls through to a
     warning instead of being unlocked.
     """
-    mode = obj["mode"] if "mode" in obj else None
-
-    if mode == CHECKOUT_MODE_SUBSCRIPTION:
+    if is_subscription_checkout(obj):
         _handle_subscription_checkout(db, event_id, obj)
         return
 
