@@ -28,6 +28,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from payments.models import Base, utcnow
 
+# Imported for its side effect. The foreign key below names the users table by
+# string, and SQLAlchemy only resolves that when the class defining it has been
+# registered on this Base. In the running app it happens to be imported first
+# by the router, so this works by accident; import this module on its own and
+# the foreign key fails to resolve on the first flush.
+#
+# Depending on import order for a thing that raises at write time rather than
+# at import time is the kind of fragility that surfaces in whichever script
+# somebody writes next.
+import payments.accounts_models  # noqa: F401
+
 ID_LENGTH = 255
 STATUS_LENGTH = 32
 

@@ -42,6 +42,8 @@ holding them is never committed - `.gitignore` covers `.env`.
 | `STRIPE_SECRET_KEY` | Live key starts with `sk_live_` or `rk_live_`. |
 | `STRIPE_WEBHOOK_SECRET` | From the live webhook endpoint, not the CLI. |
 | `STRIPE_PRICE_ID` | The live mode price ID, which differs from the test one. |
+| `STRIPE_SUBSCRIPTION_PRICE_ID` | The live recurring price. **May be left empty**, see below. |
+| `PORTAL_RETURN_DEEP_LINK` | `golfcoachnow://subscription-updated` |
 | `PUBLIC_BASE_URL` | Public https origin, no trailing slash. |
 | `SUCCESS_DEEP_LINK` | `golfcoachnow://payment-success` |
 | `CANCEL_DEEP_LINK` | `golfcoachnow://payment-cancelled` |
@@ -59,6 +61,26 @@ buyers before it blocks abuse. Raise the limit if legitimate users ever see a
 The app validates these at startup and exits if a required one is missing. A
 failed boot right after a deploy is the intended behaviour, and it is better
 than discovering the problem when a customer pays.
+
+### The recurring price is the one setting allowed to be empty
+
+Every other Stripe variable is required and the app refuses to start without
+it, because a payment service missing a key should fail at boot rather than on
+a customer's card.
+
+`STRIPE_SUBSCRIPTION_PRICE_ID` is deliberately not. Leaving it unset means
+`/payments/subscribe` answers 503 and everything else keeps working, so the
+subscription code can deploy before the plan goes on sale without taking the
+live one-time checkout down with it.
+
+The consequence to know: **an empty value fails quietly.** Nothing crashes,
+nothing logs an error at startup, and the subscribe button simply never works.
+If subscriptions appear unavailable in production, check this variable first.
+
+**Put the recurring price on a product that already carries an eligible tax
+code.** Managed Payments is enabled on this account and rejects checkout for a
+product without one. That rejection happens live, on a real customer's card,
+and it is what broke checkout once already.
 
 ## Steps
 
@@ -129,14 +151,37 @@ before going live rather than copying it because it was the default here.
 Dashboard, Developers, Webhooks, Add endpoint.
 
 - URL: `https://your-domain/payments/webhook`
-- Events: `checkout.session.completed` and nothing else.
+- Events: the six below, and nothing else.
+
+```
+checkout.session.completed
+customer.subscription.created
+customer.subscription.updated
+customer.subscription.deleted
+invoice.paid
+invoice.payment_failed
+```
+
+**All six are required once subscriptions are on sale, and missing one fails
+silently.** The endpoint answers 200 to anything it does not handle, so an
+under-subscribed endpoint looks perfectly healthy in the dashboard while the
+thing it should have done never happens:
+
+| Missing event | What breaks |
+| --- | --- |
+| `customer.subscription.created` | Nobody's subscription is ever recorded |
+| `invoice.paid` | Nothing renews. Everybody lapses after one month, having paid for more |
+| `customer.subscription.deleted` | Cancelled customers keep full access forever |
+| `customer.subscription.updated` | Status changes are missed, including cancellations scheduled for period end |
+
+Only `checkout.session.completed` is needed while the one-time product is the
+only thing on sale, which is what this endpoint was originally created with.
+Adding the other five is part of turning subscriptions on, not an optional
+extra.
 
 Stripe shows the signing secret once, when the endpoint is created. Copy it
 into `STRIPE_WEBHOOK_SECRET`. If it is lost, roll it in the dashboard and
 update the variable.
-
-Subscribing only to the one event keeps the endpoint quiet. The handler still
-answers 200 to anything else, so nothing breaks if more are added later.
 
 ### 5. Switch the keys
 
