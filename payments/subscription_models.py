@@ -1,19 +1,24 @@
 """The subscription record.
 
-Named user_subscriptions rather than subscriptions on purpose. models.py
-already declares a Subscription class on this same Base, left over from a
-reverted attempt, and two classes cannot map one table name - SQLAlchemy
-raises at import and the app stops booting. That model is dead code its owner
-plans to remove, and the question of who deletes it is open on issue #4.
+Named user_subscriptions rather than subscriptions, and the reason changed.
 
-The name is not load bearing. This table does not exist in production yet, so
-renaming it is one op.rename_table for as long as that stays true. Waiting for
-the answer would have cost more than the rename ever will.
+It started as a way around a collision: models.py declared a Subscription class
+on this same Base, and two classes cannot map one table name without SQLAlchemy
+raising at import. That class has since been deleted, so the collision is gone.
 
-Why a table of its own rather than reusing the existing Subscription: that one
-is keyed on device_id with no user at all. Accounts exist now, and a
-subscription that belongs to a handset dies with the handset. The person keeps
-being charged for access they cannot reach, which turns into refunds.
+The name stays anyway, for a better reason. A subscriptions table already
+exists in the production database. It was created directly on the server rather
+than by a migration, which is the subject of issue #5, so nothing in this
+repository would tell you it is there. A migration creating a table of that
+name would run fine on every fresh database and fail on the only one that
+matters.
+
+Taking the name would mean dropping a live table first, and a destructive
+migration to save eleven characters is a bad trade.
+
+Why a table of its own rather than reusing that one: it is keyed on device_id
+with no user at all. Accounts exist now, and a subscription that belongs to a
+handset dies with the handset while the charges continue, which is a refund.
 """
 
 from datetime import datetime

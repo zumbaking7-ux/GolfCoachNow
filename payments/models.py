@@ -7,11 +7,12 @@ processed_events.stripe_event_id
     more than once. The unique index is what makes a repeat delivery a no-op.
 
 unlocks.device_id
-    Legacy one-time payment records. Kept for backward compatibility.
+    One-time purchases. The unique index is what keeps a repeated delivery
+    from unlocking twice.
 
-subscriptions.device_id
-    Active subscription state per device. The unique index ensures one
-    subscription record per device.
+The subscriptions table that used to be declared here was scaffolding from a
+reverted attempt, never migrated and never called. It was removed so the real
+subscription tables could take the name. See subscription_models.py.
 """
 
 from datetime import datetime, timezone
@@ -68,31 +69,6 @@ class Unlock(Base):
     source: Mapped[str] = mapped_column(String(SOURCE_LENGTH), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
-    )
-
-
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-    __table_args__ = (
-        UniqueConstraint("device_id", name="uq_subscriptions_device_id"),
-        UniqueConstraint("stripe_subscription_id", name="uq_subscriptions_stripe_sub_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
-    stripe_customer_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
-    stripe_subscription_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
-    status: Mapped[str] = mapped_column(String(STATUS_LENGTH), nullable=False)
-    current_period_end: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    customer_email: Mapped[str | None] = mapped_column(String(EMAIL_LENGTH), nullable=True)
-    source: Mapped[str] = mapped_column(String(SOURCE_LENGTH), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
 
 

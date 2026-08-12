@@ -126,10 +126,6 @@ def retrieve_checkout_session(session_id: str) -> stripe.checkout.Session:
     return stripe.checkout.Session.retrieve(session_id)
 
 
-def retrieve_subscription(subscription_id: str) -> stripe.Subscription:
-    return stripe.Subscription.retrieve(subscription_id)
-
-
 def construct_event(payload: bytes, signature_header: str) -> stripe.Event:
     """Verify a webhook signature and return the parsed event.
 
