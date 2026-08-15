@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>GolfCoachNow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+--bg:#000;--card:#0e0e0e;--green:#adca34;--green-dark:#8fa825;--green-border:rgba(173,202,52,0.67);
+--green-dim:rgba(173,202,52,0.12);--green-glow:rgba(173,202,52,0.25);--muted:#999;--white:#fff;
+--surface:#1a1a1c;--red:#ff3b30;
+}
+html,body{height:100%;overflow:hidden}
+body{background:#111;color:var(--white);font-family:-apple-system,'SF Pro Display','Segoe UI',system-ui,sans-serif;
+-webkit-font-smoothing:antialiased;overscroll-behavior:none;display:flex;align-items:center;justify-content:center}
+
+.phone-frame{width:100%;max-width:390px;height:100%;background:var(--bg);
+position:relative;overflow:hidden;border-radius:0}
+@media(min-width:500px){
+.phone-frame{border-radius:40px;border:3px solid #222;box-shadow:0 0 60px rgba(0,0,0,0.8),0 0 30px rgba(173,202,52,0.1);
+max-height:844px;height:95vh}
+}
+@media(max-width:499px){
+body{background:var(--bg)}
+}
+
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+.scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+
+/* ── Home ── */
+.banner{width:100%;height:160px;object-fit:cover;display:block}
+.greeting-wrap{margin-top:-20px;padding:0 12px;position:relative;z-index:1}
+.greeting{border-radius:12px;border:1px solid var(--green-border);background:var(--card);
+overflow:hidden;position:relative;box-shadow:0 4px 12px var(--green-glow)}
+.greeting .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.6;pointer-events:none}
+.greeting .inner{position:relative;display:flex;padding:12px;gap:10px}
+.greeting .bar{width:3px;min-height:56px;border-radius:1.5px;background:var(--green);flex-shrink:0}
+.greeting h2{font-size:20px;line-height:26px;font-weight:700;color:var(--white)}
+.greeting h2 span{color:var(--green)}
+.greeting p{font-size:12px;color:#b3b3b3;margin-top:2px}
+
+.skills-row{display:flex;gap:6px;padding:0 12px;margin-top:8px;position:relative;z-index:1}
+.skill-card{flex:1;border-radius:12px;border:1px solid var(--green-border);background:var(--card);
+padding:8px 4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;
+box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
+.skill-card:active{transform:scale(.96)}
+.skill-card img{width:40px;height:40px;border-radius:10px;object-fit:cover}
+.skill-card .name{font-size:11px;font-weight:800;margin-top:4px;text-align:center}
+.skill-card .desc{font-size:9px;color:var(--muted);text-align:center;max-height:24px;
+overflow:hidden;line-height:12px;margin-top:2px}
+.skill-card .cta-btn{width:100%;margin-top:5px;padding:5px 2px;border-radius:7px;
+background:linear-gradient(to bottom,#8fc238,#6b9e24);border:1px solid #618c1f;
+font-size:9px;font-weight:800;color:#000;text-align:center;cursor:pointer;white-space:nowrap}
+.skill-card .cta-btn.sm{font-size:7px}
+
+.talk-row{display:flex;justify-content:center;padding-top:8px}
+.talk-card{width:65%;border-radius:12px;border:1px solid var(--green-border);background:var(--card);
+display:flex;align-items:center;padding:8px 10px;gap:6px;cursor:pointer;
+box-shadow:0 4px 16px var(--green-glow);transition:transform .15s}
+.talk-card:active{transform:scale(.96)}
+.talk-card img.mic{width:36px;height:36px;border-radius:6px;object-fit:contain}
+.talk-card .info{flex:1}
+.talk-card .info h3{font-size:12px;font-weight:700}
+.talk-card .info p{font-size:8px;color:var(--muted);line-height:11px}
+.talk-card img.pulse{width:28px;height:28px;object-fit:contain}
+.talk-card img.arrow{width:16px;height:16px;object-fit:contain}
+
+.action-row{display:flex;gap:6px;padding:8px 12px 20px}
+.action-card{flex:1;height:72px;border-radius:12px;border:1px solid var(--green-border);
+background:var(--card);display:flex;align-items:center;padding:10px;gap:8px;cursor:pointer;
+box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
+.action-card:active{transform:scale(.96)}
+.action-card img.icon{width:30px;height:30px;border-radius:6px;object-fit:cover}
+.action-card .info{flex:1}
+.action-card .info h4{font-size:12px;font-weight:700}
+.action-card .info p{font-size:10px;color:var(--muted);line-height:13px}
+.action-card img.arrow{width:16px;height:16px;object-fit:contain}
+
+/* ── Top bar ── */
+.topbar{display:flex;align-items:center;padding:12px 16px;padding-top:max(env(safe-area-inset-top),12px);
+background:var(--bg);position:relative;z-index:10}
+.topbar .back{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+cursor:pointer;border-radius:50%;background:transparent;border:none;color:var(--white);font-size:24px}
+.topbar .title{flex:1;text-align:center;font-size:18px;font-weight:800;color:var(--green);
+letter-spacing:1px}
+.topbar .badge{background:var(--green);color:#000;font-size:12px;font-weight:700;
+padding:4px 12px;border-radius:12px}
+
+/* ── Module Select ── */
+.module-select{padding:0 24px;display:flex;flex-direction:column;align-items:center;
+justify-content:center;flex:1;gap:16px}
+.module-btn{width:100%;padding:20px;border-radius:14px;border:1px solid var(--green-border);
+background:var(--card);display:flex;align-items:center;gap:16px;cursor:pointer;
+box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
+.module-btn:active{transform:scale(.96)}
+.module-btn img{width:48px;height:48px;border-radius:12px;object-fit:cover}
+.module-btn .info h3{font-size:16px;font-weight:700}
+.module-btn .info p{font-size:13px;color:var(--muted)}
+
+/* ── Camera ── */
+.camera-screen .camera-wrap{flex:1;position:relative;background:#111}
+.camera-screen video{width:100%;height:100%;object-fit:cover}
+.camera-screen .overlay{position:absolute;inset:0;display:flex;flex-direction:column;
+align-items:center;pointer-events:none}
+.camera-screen .rep-badge{margin-top:16px;background:rgba(14,14,14,0.85);border:1px solid var(--green-border);
+border-radius:10px;padding:6px 16px;font-size:22px;font-weight:700;pointer-events:auto}
+.camera-screen .status{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+background:rgba(14,14,14,0.85);border:1px solid var(--green-border);border-radius:14px;
+padding:14px 28px;font-size:16px;font-weight:700;color:var(--white);text-align:center;
+box-shadow:0 0 30px var(--green-glow),0 0 60px rgba(173,202,52,0.1);
+animation:status-glow 1.5s ease-in-out infinite alternate}
+@keyframes status-glow{
+0%{box-shadow:0 0 20px var(--green-glow),0 0 40px rgba(173,202,52,0.08);border-color:rgba(173,202,52,0.4)}
+100%{box-shadow:0 0 40px rgba(173,202,52,0.5),0 0 80px rgba(173,202,52,0.2);border-color:rgba(173,202,52,0.9)}
+}
+.camera-screen .controls{position:absolute;bottom:32px;left:0;right:0;display:flex;
+justify-content:center;pointer-events:auto;padding-bottom:max(env(safe-area-inset-bottom),0px)}
+.rec-btn{width:72px;height:72px;border-radius:50%;border:3px solid var(--green);
+background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+box-shadow:0 0 16px var(--green-glow);transition:all .2s}
+.rec-btn.recording{border-color:var(--red);box-shadow:0 0 16px rgba(255,59,48,0.4)}
+.rec-btn .dot{width:56px;height:56px;border-radius:50%;background:var(--red);transition:all .2s}
+.rec-btn.recording .dot{width:24px;height:24px;border-radius:6px}
+
+.correction-card{position:absolute;bottom:120px;left:16px;right:16px;border-radius:14px;
+border:1px solid var(--green-border);background:rgba(14,14,14,0.95);padding:16px;
+box-shadow:0 4px 16px var(--green-glow);pointer-events:auto}
+.correction-card .fault{font-size:18px;font-weight:700;color:var(--green);margin-bottom:8px}
+.correction-card .text{font-size:15px;color:var(--white);line-height:1.4}
+.correction-card .share-row{display:flex;justify-content:flex-end;margin-top:10px}
+.share-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;
+border:1px solid var(--green-border);background:var(--card);cursor:pointer;color:var(--green);
+font-size:13px;font-weight:700}
+.share-btn img{width:16px;height:16px}
+
+/* ── Talk Mode ── */
+.talk-screen{align-items:center}
+.talk-screen .pulse-icon{width:48px;margin-top:24px}
+.talk-screen .status-text{font-size:16px;color:var(--muted);text-align:center;
+padding:0 32px;margin-top:16px}
+.talk-screen .transcript{margin:20px 24px 0;padding:16px;border-radius:10px;
+background:var(--card);border:1px solid var(--green-border);font-size:18px;
+text-align:center;box-shadow:0 4px 8px rgba(173,202,52,0.1)}
+.talk-screen .mic-wrap{margin-top:auto;margin-bottom:48px}
+.talk-mic{width:88px;height:88px;border-radius:50%;border:2px solid var(--green);
+background:rgba(173,202,52,0.15);cursor:pointer;display:flex;align-items:center;
+justify-content:center;box-shadow:0 0 24px var(--green-glow);transition:all .2s}
+.talk-mic.listening{border-color:var(--red);background:rgba(255,59,48,0.2);
+box-shadow:0 0 24px rgba(255,59,48,0.4);animation:pulse-mic 0.6s ease-in-out infinite alternate}
+@keyframes pulse-mic{from{transform:scale(1)}to{transform:scale(1.15)}}
+.talk-mic img{width:44px;height:44px;object-fit:contain}
+.talk-correction{margin:0 24px 24px;padding:20px;border-radius:14px;
+border:1px solid var(--green-border);background:var(--card);
+box-shadow:0 4px 16px var(--green-glow)}
+
+/* ── Paywall ── */
+.paywall{align-items:center;padding:24px;padding-top:max(env(safe-area-inset-top),12px)}
+.paywall .banner-img{width:100%;height:100px;object-fit:cover;border-radius:14px;margin-top:16px}
+.paywall h1{font-size:26px;font-weight:800;letter-spacing:1px;margin-top:24px}
+.paywall .sub{font-size:14px;color:var(--muted);text-align:center;margin-top:6px}
+.feature-box{width:100%;border-radius:14px;border:1px solid var(--green-border);
+background:var(--card);padding:16px;margin-top:24px;box-shadow:0 4px 12px var(--green-glow)}
+.feature-row{display:flex;align-items:center;gap:12px;padding:8px 0}
+.feature-row img{width:24px;height:24px;object-fit:contain}
+.feature-row span{font-size:15px}
+.paywall .price{font-size:48px;font-weight:800;color:var(--green);margin-top:auto}
+.paywall .per{font-size:14px;color:var(--muted)}
+.subscribe-btn{width:100%;padding:18px;border-radius:14px;
+background:linear-gradient(to bottom,#8fc238,#6b9e24);border:1px solid #618c1f;
+font-size:16px;font-weight:800;color:#000;letter-spacing:1px;cursor:pointer;
+margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;
+box-shadow:0 4px 20px var(--green-glow);position:relative;overflow:hidden}
+.subscribe-btn::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%{left:-100%}50%{left:100%}100%{left:100%}}
+.restore-btn{background:none;border:none;color:var(--green);font-size:14px;
+cursor:pointer;margin-top:12px;padding:8px}
+
+/* ── Loading ── */
+.loader{display:inline-block;width:24px;height:24px;border:2px solid rgba(0,0,0,0.3);
+border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Utilities ── */
+.safe-bottom{padding-bottom:max(env(safe-area-inset-bottom),16px)}
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+<!-- ════════ HOME SCREEN ════════ -->
+<div id="home" class="screen active">
+<div class="scrollable">
+  <img class="banner" src="/static/img/banner.png" alt="GolfCoachNow">
+
+  <div class="greeting-wrap">
+    <div class="greeting">
+      <img class="bg" src="/static/img/bg_pattern.png" alt="">
+      <div class="inner">
+        <div class="bar"></div>
+        <div>
+          <h2 id="greeting-text">Good morning,<br><span>Golfer</span></h2>
+          <p>What would you like<br>to learn today?</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="skills-row">
+    <div class="skill-card" onclick="openCamera('swing')">
+      <img src="/static/img/ic_swing.png" alt="Swing">
+      <div class="name">SWING</div>
+      <div class="desc">Analyze your swing. Get instant feedback.</div>
+      <div class="cta-btn">START SWING →</div>
+    </div>
+    <div class="skill-card" onclick="openCamera('putt')">
+      <img src="/static/img/ic_putt.png" alt="Putt">
+      <div class="name">PUTT</div>
+      <div class="desc">Analyze your putting. Improve your stroke.</div>
+      <div class="cta-btn">START PUTT →</div>
+    </div>
+    <div class="skill-card" onclick="openCamera('short_game')">
+      <img src="/static/img/ic_short_game.png" alt="Short Game">
+      <div class="name">SHORT GAME</div>
+      <div class="desc">Chipping, pitching &amp; bunker play.</div>
+      <div class="cta-btn sm">START SHORT GAME →</div>
+    </div>
+  </div>
+
+  <div class="talk-row">
+    <div class="talk-card" onclick="openTalkSelect()">
+      <img class="mic" src="/static/img/ic_talk_mode.png" alt="Talk">
+      <div class="info">
+        <h3>TALK MODE</h3>
+        <p>Talk to your AI coach.<br>Get instant answers.</p>
+      </div>
+      <img class="pulse" src="/static/img/ic_pulse.png" alt="">
+      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
+    </div>
+  </div>
+
+  <div class="action-row safe-bottom">
+    <div class="action-card" onclick="shareApp()">
+      <img class="icon" src="/static/img/ic_share.png" alt="Share">
+      <div class="info">
+        <h4>SHARE</h4>
+        <p>Golf Coach Now</p>
+      </div>
+      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
+    </div>
+    <div class="action-card" onclick="connectFounder()">
+      <img class="icon" src="/static/img/ic_connect.png" alt="Connect">
+      <div class="info">
+        <h4>CONNECT</h4>
+        <p>Share your ideas with the founder</p>
+      </div>
+      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════ MODULE SELECT (for Talk Mode) ════════ -->
+<div id="talk-select" class="screen">
+<div class="topbar">
+  <button class="back" onclick="goHome()">←</button>
+  <div class="title">TALK MODE</div>
+  <div style="width:40px"></div>
+</div>
+<div class="module-select">
+  <div class="module-btn" onclick="openTalk('swing')">
+    <img src="/static/img/ic_swing.png" alt="Swing">
+    <div class="info"><h3>Swing</h3><p>Full swing coaching</p></div>
+  </div>
+  <div class="module-btn" onclick="openTalk('putt')">
+    <img src="/static/img/ic_putt.png" alt="Putt">
+    <div class="info"><h3>Putt</h3><p>Putting stroke coaching</p></div>
+  </div>
+  <div class="module-btn" onclick="openTalk('short_game')">
+    <img src="/static/img/ic_short_game.png" alt="Short Game">
+    <div class="info"><h3>Short Game</h3><p>Chip &amp; pitch coaching</p></div>
+  </div>
+</div>
+</div>
+
+<!-- ════════ CAMERA SCREEN ════════ -->
+<div id="camera" class="screen camera-screen">
+<div class="topbar" style="position:absolute;top:0;left:0;right:0;z-index:20">
+  <button class="back" onclick="closeCamera()">←</button>
+  <div style="flex:1"></div>
+  <div class="badge" id="cam-module-badge">Swing</div>
+  <div style="flex:1"></div>
+  <div style="width:40px"></div>
+</div>
+<div class="camera-wrap">
+  <video id="cam-preview" autoplay playsinline muted></video>
+  <div class="overlay">
+    <div class="rep-badge">Rep: <span id="rep-count">0</span></div>
+    <div class="status" id="cam-status">Tap record to start</div>
+    <div id="cam-correction" class="correction-card" style="display:none">
+      <div class="fault" id="cam-fault"></div>
+      <div class="text" id="cam-correction-text"></div>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareCorrection()">
+          <img src="/static/img/ic_share.png" alt="">Share
+        </button>
+      </div>
+    </div>
+    <div class="controls safe-bottom">
+      <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">
+        <div class="dot"></div>
+      </button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════ TALK MODE SCREEN ════════ -->
+<div id="talk" class="screen talk-screen">
+<div class="topbar">
+  <button class="back" onclick="closeTalk()">←</button>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <img src="/static/img/ic_talk_mode.png" style="width:24px;height:24px;object-fit:contain" alt="">
+    <span class="title" style="flex:none">TALK MODE</span>
+  </div>
+  <div style="flex:1"></div>
+  <div class="badge" id="talk-module-badge">Swing</div>
+</div>
+<div class="scrollable" style="display:flex;flex-direction:column;align-items:center">
+  <img class="pulse-icon" src="/static/img/ic_pulse.png" alt="">
+  <div class="status-text" id="talk-status">Tap the mic and describe your swing</div>
+  <div class="transcript" id="talk-transcript" style="display:none"></div>
+  <div id="talk-correction-wrap" style="display:none;width:100%;padding:0 0 24px">
+    <div class="talk-correction">
+      <div class="fault" id="talk-fault" style="font-size:18px;font-weight:700;color:var(--green);margin-bottom:8px"></div>
+      <div id="talk-correction-text" style="font-size:15px;line-height:1.4"></div>
+      <div class="share-row" style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="share-btn" onclick="shareTalkCorrection()">
+          <img src="/static/img/ic_share.png" alt="">Share
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="mic-wrap" id="mic-wrap">
+    <button class="talk-mic" id="talk-mic-btn" onclick="toggleTalkMic()">
+      <img src="/static/img/ic_talk_mode.png" alt="Mic">
+    </button>
+  </div>
+</div>
+</div>
+
+<!-- ════════ PAYWALL SCREEN ════════ -->
+<div id="paywall" class="screen paywall">
+<div class="topbar" style="padding:0 16px">
+  <button class="back" onclick="goHome()">←</button>
+</div>
+<img class="banner-img" src="/static/img/banner.png" alt="">
+<h1>UNLOCK FULL ACCESS</h1>
+<div class="sub">Train like a pro with unlimited AI coaching</div>
+<div class="feature-box">
+  <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>Unlimited swing analysis</span></div>
+  <div class="feature-row"><img src="/static/img/ic_putt.png" alt=""><span>Unlimited putting analysis</span></div>
+  <div class="feature-row"><img src="/static/img/ic_short_game.png" alt=""><span>Unlimited short game analysis</span></div>
+  <div class="feature-row"><img src="/static/img/ic_talk_mode.png" alt=""><span>Talk Mode — voice coaching</span></div>
+  <div class="feature-row"><img src="/static/img/ic_share.png" alt=""><span>Share corrections</span></div>
+</div>
+<div class="price">$14.99</div>
+<div class="per">per month</div>
+<button class="subscribe-btn" id="subscribe-btn" onclick="subscribe()">
+  SUBSCRIBE NOW <img src="/static/img/ic_arrow.png" style="width:18px;height:18px" alt="">
+</button>
+<button class="restore-btn" onclick="restorePurchase()">Already subscribed? Restore</button>
+</div>
+
+</div><!-- /phone-frame -->
+
+<script>
+const API = '';
+const MODULE_TITLES = {swing:'Swing',putt:'Putt',short_game:'Short Game'};
+let currentModule = 'swing';
+let deviceId = localStorage.getItem('gcn_device_id');
+if (!deviceId) { deviceId = 'web_' + Math.random().toString(36).slice(2,12); localStorage.setItem('gcn_device_id', deviceId); }
+let repCount = 0;
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recognition = null;
+let ttsUtterance = null;
+let lastCorrection = {};
+
+// ── Navigation ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goHome() { stopCameraStream(); showScreen('home'); }
+
+// ── Greeting ──
+(function() {
+  const h = new Date().getHours();
+  const g = h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
+  document.getElementById('greeting-text').innerHTML = g + '<br><span>Golfer</span>';
+})();
+
+// ── Share ──
+function shareApp() {
+  const text = 'Check out GolfCoachNow — AI-powered golf coaching for your swing, putt, and short game.';
+  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied to clipboard!'); }
+}
+function connectFounder() { window.location.href = 'mailto:jmt_mcgraw@yahoo.com?subject=GolfCoachNow%20Feedback'; }
+function shareCorrection() {
+  const text = `GolfCoachNow — ${MODULE_TITLES[currentModule]} Analysis\n\nFault: ${lastCorrection.fault}\nCorrection: ${lastCorrection.text}\n\nTry GolfCoachNow — AI-powered golf coaching`;
+  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied!'); }
+}
+function shareTalkCorrection() {
+  const text = `GolfCoachNow — ${MODULE_TITLES[currentModule]} Talk Mode\n\nFault: ${lastCorrection.fault}\nCorrection: ${lastCorrection.text}\n\nTry GolfCoachNow — AI-powered golf coaching`;
+  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied!'); }
+}
+
+// ── Camera ──
+async function openCamera(module) {
+  currentModule = module;
+  repCount = 0;
+  document.getElementById('rep-count').textContent = '0';
+  document.getElementById('cam-module-badge').textContent = MODULE_TITLES[module];
+  document.getElementById('cam-status').style.display = '';
+  document.getElementById('cam-status').textContent = 'Tap record to start';
+  document.getElementById('cam-correction').style.display = 'none';
+  document.getElementById('rec-btn').classList.remove('recording');
+  showScreen('camera');
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:true});
+    document.getElementById('cam-preview').srcObject = mediaStream;
+  } catch(e) {
+    document.getElementById('cam-status').textContent = 'Camera permission required';
+  }
+}
+function closeCamera() { stopCameraStream(); goHome(); }
+function stopCameraStream() {
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+  const v = document.getElementById('cam-preview'); if (v) v.srcObject = null;
+}
+
+function toggleRecord() {
+  const btn = document.getElementById('rec-btn');
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    btn.classList.remove('recording');
+    return;
+  }
+  if (!mediaStream) { document.getElementById('cam-status').textContent = 'Camera not available'; return; }
+  document.getElementById('cam-correction').style.display = 'none';
+  repCount++;
+  document.getElementById('rep-count').textContent = repCount;
+  document.getElementById('cam-status').textContent = 'Recording...';
+  document.getElementById('cam-status').style.display = '';
+  btn.classList.add('recording');
+  recordedChunks = [];
+  let mimeType = 'video/webm;codecs=vp8,opus';
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    mimeType = 'video/mp4';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
+  }
+  mediaRecorder = mimeType ? new MediaRecorder(mediaStream, {mimeType}) : new MediaRecorder(mediaStream);
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = () => uploadVideo();
+  mediaRecorder.start();
+}
+
+async function uploadVideo() {
+  document.getElementById('cam-status').textContent = 'Uploading & analyzing...';
+  const type = (mediaRecorder && mediaRecorder.mimeType) || 'video/mp4';
+  const ext = type.includes('mp4') ? 'mp4' : type.includes('webm') ? 'webm' : 'mp4';
+  const blob = new Blob(recordedChunks, {type});
+  const form = new FormData();
+  form.append('file', blob, 'rep.' + ext);
+  try {
+    const res = await fetch(API + '/upload?module=' + currentModule + '&device_id=' + deviceId, {method:'POST', body:form});
+    if (res.status === 403) { showScreen('paywall'); return; }
+    if (!res.ok) throw new Error('Upload failed');
+    const data = await res.json();
+    lastCorrection = {fault: (data.dominant_fault||'').replace(/_/g,' ').toUpperCase(), text: data.correction||''};
+    document.getElementById('cam-fault').textContent = lastCorrection.fault;
+    document.getElementById('cam-correction-text').textContent = lastCorrection.text;
+    document.getElementById('cam-correction').style.display = '';
+    document.getElementById('cam-status').style.display = 'none';
+    trackEvent('rep_completed');
+  } catch(e) {
+    document.getElementById('cam-status').textContent = e.message || 'Analysis failed';
+  }
+}
+
+// ── Talk Mode ──
+function openTalkSelect() { showScreen('talk-select'); }
+function openTalk(module) {
+  currentModule = module;
+  document.getElementById('talk-module-badge').textContent = MODULE_TITLES[module];
+  document.getElementById('talk-status').textContent = 'Tap the mic and describe your swing';
+  document.getElementById('talk-transcript').style.display = 'none';
+  document.getElementById('talk-correction-wrap').style.display = 'none';
+  document.getElementById('talk-mic-btn').classList.remove('listening');
+  showScreen('talk');
+}
+function closeTalk() { stopRecognition(); goHome(); }
+
+function toggleTalkMic() {
+  const btn = document.getElementById('talk-mic-btn');
+  if (btn.classList.contains('listening')) { stopRecognition(); return; }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    document.getElementById('talk-status').textContent = 'Speech recognition not supported in this browser';
+    return;
+  }
+  document.getElementById('talk-correction-wrap').style.display = 'none';
+  document.getElementById('talk-transcript').style.display = 'none';
+  btn.classList.add('listening');
+  document.getElementById('talk-status').textContent = 'Listening...';
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  recognition.onresult = e => {
+    let text = '';
+    for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+    document.getElementById('talk-transcript').textContent = '"' + text + '"';
+    document.getElementById('talk-transcript').style.display = '';
+  };
+  recognition.onend = () => {
+    btn.classList.remove('listening');
+    const text = document.getElementById('talk-transcript').textContent.replace(/^"|"$/g,'');
+    if (text) sendTalk(text); else document.getElementById('talk-status').textContent = "Didn't catch that. Try again.";
+  };
+  recognition.onerror = () => {
+    btn.classList.remove('listening');
+    document.getElementById('talk-status').textContent = 'Try again';
+  };
+  recognition.start();
+}
+function stopRecognition() {
+  if (recognition) { recognition.abort(); recognition = null; }
+  document.getElementById('talk-mic-btn').classList.remove('listening');
+}
+
+async function sendTalk(text) {
+  document.getElementById('talk-status').textContent = 'Analyzing...';
+  try {
+    const res = await fetch(API + '/talk', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text, module:currentModule, device_id:deviceId})
+    });
+    if (res.status === 403) { showScreen('paywall'); return; }
+    const data = await res.json();
+    if (data.matched && data.fault) {
+      lastCorrection = {fault: data.fault.replace(/_/g,' ').toUpperCase(), text: data.correction};
+      document.getElementById('talk-fault').textContent = lastCorrection.fault;
+      document.getElementById('talk-correction-text').textContent = data.correction;
+      document.getElementById('talk-correction-wrap').style.display = '';
+      document.getElementById('talk-status').textContent = '';
+      if ('speechSynthesis' in window) {
+        ttsUtterance = new SpeechSynthesisUtterance(data.correction);
+        ttsUtterance.lang = 'en-US';
+        speechSynthesis.speak(ttsUtterance);
+      }
+    } else {
+      document.getElementById('talk-status').textContent = data.correction || 'No correction found';
+    }
+  } catch(e) {
+    document.getElementById('talk-status').textContent = 'Failed to get correction';
+  }
+}
+
+// ── Paywall ──
+async function subscribe() {
+  const btn = document.getElementById('subscribe-btn');
+  btn.innerHTML = '<span class="loader"></span>';
+  try {
+    const res = await fetch(API + '/payments/subscribe', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({device_id:deviceId})
+    });
+    const data = await res.json();
+    if (data.checkout_url) window.location.href = data.checkout_url;
+    else alert(data.detail || 'Could not start checkout');
+  } catch(e) {
+    alert('Failed to start checkout');
+  }
+  btn.innerHTML = 'SUBSCRIBE NOW <img src="/static/img/ic_arrow.png" style="width:18px;height:18px" alt="">';
+}
+async function restorePurchase() {
+  try {
+    const res = await fetch(API + '/payments/unlock-status?device_id=' + deviceId);
+    const data = await res.json();
+    if (data.unlocked) { alert('Subscription restored!'); goHome(); }
+    else alert('No active subscription found for this device.');
+  } catch(e) { alert('Could not check subscription status.'); }
+}
+
+// ── Analytics ──
+function trackEvent(name) {
+  fetch(API + '/analytics/event', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({device_id:deviceId, event_name:name, module:currentModule, platform:'web'})
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "89198832923",
+    "project_id": "golfcoachnow-95c5f",
+    "storage_bucket": "golfcoachnow-95c5f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:89198832923:android:9cc9c6b4f963094e36b7be",
+        "android_client_info": {
+          "package_name": "com.golfcoachnow.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHH9H7eWL-3qejH6F1Es_90Wsncpf6NCA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,37 +1,42 @@
-# Xcode
-*.xcuserdata/
-DerivedData/
-build/
-*.ipa
-*.dSYM.zip
-*.dSYM
+# Build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+iosapp/android/
+*.apk
+*.aab
+*.dex
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
+# Keystores
+*.jks
+*.keystore
+
+# Secrets
 .env
-venv/
-.venv/
-.pytest_cache/
-
-# Local SQLite databases
-*.db
-*.db-journal
+*.env.local
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Android
-android/.gradle/
-android/app/build/
-android/build/
-android/local.properties
-*.apk
-*.aab
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+.venv/
 
-# PythonAnywhere
-install_log.txt
-setup_deps.py
-.deps_installed
+# IDE
+.idea/
+*.iml
+.vscode/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Uploads
+uploads/
+*.mp4
+*.mov
+*.avi

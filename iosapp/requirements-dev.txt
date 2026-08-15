@@ -1,0 +1,9 @@
+# Everything in Requirements.txt, plus the test tools.
+# Install with: pip install -r requirements-dev.txt
+
+-r Requirements.txt
+
+pytest==9.1.1
+
+# Used by fastapi.testclient to drive the app in tests.
+httpx==0.28.1

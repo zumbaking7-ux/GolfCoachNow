@@ -11,33 +11,38 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.*
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.golfcoachnow.app.R
 import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.data.api.ApiException
 import com.golfcoachnow.app.data.model.CorrectionResponse
 import com.golfcoachnow.app.data.model.GolfModule
-import com.golfcoachnow.app.ui.theme.GolfGreen
-import com.golfcoachnow.app.ui.theme.YellowAccent
+import com.golfcoachnow.app.ui.theme.*
 import com.golfcoachnow.app.util.EntitlementManager
 import kotlinx.coroutines.launch
 import java.io.File
@@ -80,7 +85,7 @@ fun CameraScreen(
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
         if (!hasPermissions) {
             Text(
                 text = "Camera & microphone permissions required",
@@ -89,7 +94,6 @@ fun CameraScreen(
             )
         }
 
-        // Camera preview
         if (hasPermissions) AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx)
@@ -133,13 +137,14 @@ fun CameraScreen(
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = GolfGreen,
+                shadowElevation = 4.dp,
             ) {
                 Text(
                     text = module.title,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = Color.Black,
                 )
             }
             Spacer(Modifier.weight(1f))
@@ -147,25 +152,40 @@ fun CameraScreen(
         }
 
         // Rep counter
-        Text(
-            text = "Rep: $repCount",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+        Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .padding(top = 64.dp),
-        )
+            shape = RoundedCornerShape(10.dp),
+            color = DarkCard.copy(alpha = 0.85f),
+            border = ButtonDefaults.outlinedButtonBorder.copy(
+                brush = Brush.linearGradient(listOf(GolfGreenBorder, GolfGreenBorder))
+            ),
+        ) {
+            Text(
+                text = "Rep: $repCount",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        }
 
         // Status text
         if (statusText.isNotEmpty() && correction == null) {
-            Text(
-                text = statusText,
-                fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.7f),
+            Surface(
                 modifier = Modifier.align(Alignment.Center),
-            )
+                shape = RoundedCornerShape(10.dp),
+                color = DarkCard.copy(alpha = 0.8f),
+            ) {
+                Text(
+                    text = statusText,
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
 
         // Correction card
@@ -175,14 +195,17 @@ fun CameraScreen(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 140.dp)
                     .padding(horizontal = 16.dp)
-                    .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
+                    .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.3f), spotColor = GolfGreen.copy(alpha = 0.3f))
+                    .clip(RoundedCornerShape(14.dp))
+                    .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
+                    .background(DarkCard.copy(alpha = 0.95f))
                     .padding(16.dp),
             ) {
                 Text(
                     text = resp.dominantFault.uppercase().replace("_", " "),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = YellowAccent,
+                    color = GolfGreen,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -190,14 +213,25 @@ fun CameraScreen(
                     fontSize = 15.sp,
                     color = Color.White,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = {
-                        shareCorrection(context, module, resp.dominantFault, resp.correction)
-                    }) {
-                        Icon(Icons.Default.Share, null, tint = GolfGreen, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Share", color = GolfGreen)
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, GolfGreenBorder, RoundedCornerShape(8.dp))
+                            .background(DarkCard)
+                            .clickable { shareCorrection(context, module, resp.dominantFault, resp.correction) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_share),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Share", color = GolfGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -213,7 +247,6 @@ fun CameraScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Talk button hidden until V1.1 Talk Mode contract
             Spacer(Modifier.size(56.dp))
 
             // Record button
@@ -275,7 +308,8 @@ fun CameraScreen(
                 },
                 modifier = Modifier
                     .size(72.dp)
-                    .border(4.dp, Color.White, CircleShape),
+                    .shadow(if (isRecording) 0.dp else 8.dp, CircleShape, ambientColor = GolfGreen.copy(alpha = 0.4f), spotColor = GolfGreen.copy(alpha = 0.4f))
+                    .border(3.dp, if (isRecording) Color.Red else GolfGreen, CircleShape),
             ) {
                 if (isRecording) {
                     Icon(
@@ -293,7 +327,6 @@ fun CameraScreen(
                 }
             }
 
-            // Flip camera placeholder
             Spacer(Modifier.size(56.dp))
         }
     }
@@ -305,6 +338,8 @@ private fun shareCorrection(context: Context, module: GolfModule, fault: String,
         appendLine()
         appendLine("Fault: ${fault.replace("_", " ").uppercase()}")
         appendLine("Correction: $correction")
+        appendLine()
+        appendLine("Try GolfCoachNow — AI-powered golf coaching")
     }
     val intent = Intent.createChooser(
         Intent(Intent.ACTION_SEND).apply {

@@ -43,11 +43,18 @@ object EntitlementManager {
         _isUnlocked.value = true
     }
 
+    suspend fun clearUnlock(context: Context) {
+        context.dataStore.edit { it[KEY_UNLOCKED] = false }
+        _isUnlocked.value = false
+    }
+
     suspend fun checkRemoteStatus(context: Context) {
         val result = ApiClient.checkUnlockStatus(deviceId)
         result.onSuccess { response ->
             if (response.unlocked) {
                 markUnlocked(context)
+            } else {
+                clearUnlock(context)
             }
         }
     }

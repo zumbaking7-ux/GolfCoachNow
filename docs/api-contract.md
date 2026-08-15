@@ -6,129 +6,180 @@
 https://golfcoachnow.pythonanywhere.com
 ```
 
-**Hosting:** PythonAnywhere (paid plan)
-**Backend:** FastAPI (ASGI-to-WSGI bridge via a2wsgi)
-**Database:** SQLite (payments.db)
+**Hosting:** PythonAnywhere (free tier)
+**Username:** golfcoachnow
+**Backend:** Flask (converted from FastAPI for WSGI compatibility)
 **Source repo:** https://github.com/zumbaking7-ux/GolfCoachNow
-
----
-
-## Modules
-
-| Module | Endpoint | Engine | Faults |
-|--------|----------|--------|--------|
-| Swing | `/wedge` | wedge.py | 20 |
-| Putt | `/putt` | putt.py | 20 |
-| Short Game | `/short-game` | chip.py | 20 |
 
 ---
 
 ## Endpoints
 
 ### GET `/`
-Health check. Returns `{"status": "ok", "service": "GolfCoachNow API"}`.
 
-### POST `/wedge`, `/putt`, `/short-game`
-Analyze pre-computed fault scores for the respective module.
+Health check.
+
+**Request:**
+```
+GET https://golfcoachnow.pythonanywhere.com/
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "service": "GolfCoachNow API"
+}
+```
+
+---
+
+### POST `/upload`
+
+Upload a golf swing video for analysis. The server extracts video features, generates fault scores, and returns the dominant fault with a coaching correction.
+
+**Request:**
+```
+POST https://golfcoachnow.pythonanywhere.com/upload
+Content-Type: multipart/form-data
+```
+
+**Form field:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | File | Video file (.mp4, .mov, .avi, .m4v). Max 16 MB. |
+
+**Response (200 OK):**
+```json
+{
+  "rep": 1,
+  "dominant_fault": "under_plane",
+  "correction": "If you're under-plane, feel the lead shoulder work down and the club move up the plane.",
+  "normalized_scores": {
+    "under_plane": 1.0,
+    "steep_shoulder_turn": 0.902
+  },
+  "status": "ok"
+}
+```
+
+**Error Responses:**
+- `400` — No file provided, or invalid file type
+- `413` — File exceeds 16 MB limit
+- `500` — Video analysis failed
+
+---
+
+### POST `/wedge`
+
+Analyze pre-computed swing fault scores and return correction coaching cue.
+
+**Request:**
+```
+POST https://golfcoachnow.pythonanywhere.com/wedge
+Content-Type: application/json
+```
 
 **Body:**
 ```json
-{"data": {"open_clubface": 0.8, "casting": 0.6}, "device_id": "device-uuid"}
+{
+  "data": {
+    "open_clubface": 0.8,
+    "casting": 0.6,
+    "sway": 0.3
+  }
+}
 ```
 
-**Response (200):**
+The `data` field is a dictionary of fault names mapped to numeric scores (0.0–1.0 severity). The engine normalizes scores, identifies the dominant fault, and returns a correction.
+
+**Response (200 OK):**
 ```json
 {
   "rep": 1,
   "dominant_fault": "open_clubface",
   "correction": "If the face is open, strengthen your lead-hand grip and square the face earlier.",
-  "normalized_scores": {"open_clubface": 1.0, "casting": 0.75},
+  "normalized_scores": {
+    "open_clubface": 1.0,
+    "casting": 0.75,
+    "sway": 0.375
+  },
   "status": "ok"
 }
 ```
 
-**Error:** `403` if daily free limit reached.
+---
 
-### POST `/upload`
-Upload video for analysis. Accepts multipart/form-data with field `file`.
+## Response Fields
 
-**Query params:** `module` (swing|putt|short_game), `device_id`
-**Limits:** .mp4/.mov/.avi/.m4v, max 16MB.
-**Response:** Same shape as module endpoints.
-
-### POST `/talk`
-Talk Mode — maps natural language to fault corrections via keyword matching.
-
-**Body:**
-```json
-{"text": "I keep slicing", "module": "swing", "device_id": "device-uuid"}
-```
-
-**Response (200):**
-```json
-{
-  "fault": "open_clubface",
-  "correction": "If the face is open, strengthen your lead-hand grip and square the face earlier.",
-  "module": "swing",
-  "matched": true
-}
-```
-
-### GET `/entitlement`
-Check if a device can use a module (free rep limit).
-
-**Query params:** `device_id`, `module`
-**Response:** `{allowed, is_subscriber, reps_used, reps_remaining, daily_limit}`
-
-### POST `/payments/checkout-session`
-Create a Stripe Checkout session for one-time $14.99 unlock.
-
-**Body:** `{"device_id": "device-uuid"}`
-**Response:** `{checkout_url, session_id}`
-
-### GET `/payments/unlock-status`
-Check if a device is unlocked.
-
-**Query params:** `device_id`
-**Response:** `{device_id, unlocked, unlocked_at}`
-
-### POST `/payments/webhook`
-Stripe webhook endpoint. Handles `checkout.session.completed` events.
-
-### GET `/payments/success`
-Stripe success redirect. Verifies payment and redirects to `golfcoachnow://payment-success`.
-
-### POST `/analytics/event`, `/analytics/batch`
-Track usage events. Batch accepts an array.
-
-### GET `/analytics/summary`
-Aggregated event stats. **Query:** `days` (1-90).
-
-### GET `/performance/history`, `/performance/trends`, `/performance/stats`
-Per-device performance data. **Query:** `device_id`, `module`, `limit`/`days`.
+| Field | Type | Description |
+|-------|------|-------------|
+| `rep` | Int | Incrementing rep counter (server-side, resets on server restart) |
+| `dominant_fault` | String | The highest-scoring fault after normalization |
+| `correction` | String | Human-readable correction cue for the dominant fault |
+| `normalized_scores` | Dict | All faults normalized to 0.0–1.0 range |
+| `status` | String | Always `"ok"` on success |
 
 ---
 
-## Entitlement Model
+## Available Fault Keys (20 total)
 
-- **Free:** 3 reps per module per day (UTC midnight reset)
-- **Paid:** One-time $14.99 unlock → unlimited forever
-- Device identified by `ANDROID_ID` (Android) or `identifierForVendor` (iOS)
+| Fault Key | Correction Summary |
+|-----------|-------------------|
+| `open_clubface` | Strengthen lead-hand grip, square face earlier |
+| `closed_clubface` | Weaken lead-hand grip, keep face neutral longer |
+| `weak_grip` | Rotate lead hand so 2–3 knuckles visible |
+| `strong_grip` | Rotate lead hand counterclockwise to neutralize |
+| `over_the_top` | Trail elbow tuck, swing from the inside |
+| `under_plane` | Lead shoulder down, club up the plane |
+| `early_extension` | Keep hips back, maintain spine angle |
+| `casting` | Hold wrist hinge longer, release naturally |
+| `chicken_wing` | Extend lead arm through impact, rotate fully |
+| `reverse_pivot` | Shift pressure to trail side on backswing |
+| `sway` | Turn around spine, don't slide laterally |
+| `slide` | Rotate hips instead of driving forward |
+| `spine_angle_loss` | Keep chest down, rotate around stable axis |
+| `tempo_imbalance` | Smooth transition, match backswing/downswing rhythm |
+| `poor_alignment` | Square feet, hips, shoulders to target line |
+| `ball_position_error` | Adjust relative to club length |
+| `grip_pressure` | Light enough to relax, firm enough to control |
+| `hip_stall` | Keep rotating through impact, chest follows |
+| `flat_shoulder_turn` | Lead shoulder moves down and under chin |
+| `steep_shoulder_turn` | Shoulders rotate more level around spine |
 
 ---
 
-## Deep Links
+## Quick Test (cURL)
 
-| URL | Trigger |
-|-----|---------|
-| `golfcoachnow://payment-success` | After successful Stripe checkout |
-| `golfcoachnow://payment-cancelled` | If user cancels checkout |
+```bash
+# Health check
+curl https://golfcoachnow.pythonanywhere.com/
+
+# Upload a swing video
+curl -X POST https://golfcoachnow.pythonanywhere.com/upload \
+  -F "file=@swing.mp4"
+
+# Send pre-computed fault scores
+curl -X POST https://golfcoachnow.pythonanywhere.com/wedge \
+  -H "Content-Type: application/json" \
+  -d '{"data":{"open_clubface":0.8,"casting":0.6,"sway":0.3}}'
+```
 
 ---
 
 ## Integration Points
 
-| Client | Directory | API Config |
-|--------|-----------|------------|
-| iOS | `GolfCoachNow/` | `APIClient.swift` → `APIConfig.baseURL` |
-| Android | `android/` | `ApiClient.kt` → `BuildConfig.API_BASE_URL` |
+| Client | File | Config Location |
+|--------|------|----------------|
+| iOS App | `GolfCoachNow/Network/APIClient.swift` | `APIConfig.uploadURL` — sends video via multipart to `/upload` |
+| Desktop Wrapper | `desktop_wrapper/main.py` | `API_URL` — sends video via multipart to `/upload` |
+
+---
+
+## Notes
+
+- The free PythonAnywhere tier has a **100 CPU seconds/day** limit. Fine for testing, may need paid tier ($5/mo) for production.
+- The rep counter resets when the server restarts.
+- The backend was converted from FastAPI to Flask for PythonAnywhere WSGI compatibility. Same behavior, same endpoints.
+- `POST /upload` accepts video files and processes them server-side. `POST /wedge` accepts pre-computed JSON fault scores.
+- Visual API docs available at `https://golfcoachnow.pythonanywhere.com/docs`.

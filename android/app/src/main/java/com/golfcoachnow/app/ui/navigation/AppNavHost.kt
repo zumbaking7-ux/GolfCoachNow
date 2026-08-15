@@ -1,7 +1,6 @@
 package com.golfcoachnow.app.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,28 +23,18 @@ object Routes {
 }
 
 @Composable
-fun AppNavHost(
-    pendingModule: String? = null,
-    onPendingConsumed: () -> Unit = {},
-) {
+fun AppNavHost() {
     val navController = rememberNavController()
-
-    LaunchedEffect(pendingModule) {
-        if (pendingModule != null) {
-            val module = GolfModule.valueOf(pendingModule)
-            navController.navigate(Routes.camera(module)) {
-                launchSingleTop = true
-            }
-            onPendingConsumed()
-        }
-    }
 
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
                 onModuleSelected = { module ->
                     navController.navigate(Routes.camera(module))
-                }
+                },
+                onTalkMode = {
+                    navController.navigate(Routes.talk(GolfModule.SWING))
+                },
             )
         }
 

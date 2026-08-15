@@ -3,6 +3,7 @@ package com.golfcoachnow.app.data.model
 enum class GolfModule(
     val title: String,
     val subtitle: String,
+    val cardDescription: String,
     val iconName: String,
     val apiEndpoint: String,
     val uploadParam: String,
@@ -10,6 +11,7 @@ enum class GolfModule(
     SWING(
         title = "Swing",
         subtitle = "Full swing analysis",
+        cardDescription = "Analyze your swing. Get instant feedback.",
         iconName = "sports_golf",
         apiEndpoint = "/wedge",
         uploadParam = "swing",
@@ -17,6 +19,7 @@ enum class GolfModule(
     PUTT(
         title = "Putt",
         subtitle = "Putting stroke analysis",
+        cardDescription = "Analyze your putting. Improve your stroke.",
         iconName = "golf_course",
         apiEndpoint = "/putt",
         uploadParam = "putt",
@@ -24,6 +27,7 @@ enum class GolfModule(
     SHORT_GAME(
         title = "Short Game",
         subtitle = "Chip & pitch analysis",
+        cardDescription = "Chipping, pitching & bunker play.",
         iconName = "landscape",
         apiEndpoint = "/short-game",
         uploadParam = "short_game",

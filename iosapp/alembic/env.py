@@ -1,0 +1,82 @@
+"""Alembic environment for the payments tables.
+
+The database URL is read straight from the DATABASE_URL environment variable
+rather than through payments.config, so running a migration does not require
+the Stripe keys to be set. payments.models only imports SQLAlchemy, so nothing
+else is pulled in either.
+"""
+
+import os
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from payments.models import Base
+
+# Imported for their side effect: defining the classes registers those tables on
+# Base.metadata, which is what autogenerate compares against.
+#
+# A table missing from here is not merely invisible. Autogenerate sees it in the
+# database, cannot find it in the metadata, and proposes DROP TABLE. Leaving
+# user_subscriptions out of this list would put a migration that deletes every
+# customer's subscription state in front of whoever next runs autogenerate, and
+# the docstrings in these migrations already warn that autogenerate proposes odd
+# things here, which is exactly what makes such a drop easy to wave through.
+#
+# Any new model module goes in this list on the same commit that creates it.
+import payments.accounts_models  # noqa: F401,E402
+import payments.subscription_models  # noqa: F401,E402
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+DEFAULT_DATABASE_URL = "sqlite:///./payments.db"
+database_url = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+# Alembic reads its ini through configparser, which treats % as an escape.
+# Doubling it keeps Postgres passwords containing % intact.
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+
+target_metadata = Base.metadata
+
+# SQLite cannot ALTER most things in place. Batch mode makes Alembic rebuild
+# the table instead, so the same migration runs on SQLite and Postgres.
+RENDER_AS_BATCH = True
+
+
+def run_migrations_offline() -> None:
+    """Emit SQL to stdout instead of running it, for review before a deploy."""
+    context.configure(
+        url=database_url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        render_as_batch=RENDER_AS_BATCH,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=RENDER_AS_BATCH,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

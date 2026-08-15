@@ -1,0 +1,171 @@
+{
+  "api_version": "2026-07-29.dahlia",
+  "created": 1786544958,
+  "data": {
+    "object": {
+      "account_country": "US",
+      "account_name": "GolfCoachNowWee provide real time learning with correction",
+      "account_tax_ids": null,
+      "amount_due": 1499,
+      "amount_overpaid": 0,
+      "amount_paid": 1499,
+      "amount_remaining": 0,
+      "amount_shipping": 0,
+      "application": null,
+      "attempt_count": 1,
+      "attempted": true,
+      "auto_advance": false,
+      "automatic_tax": {
+        "disabled_reason": null,
+        "enabled": false,
+        "liability": null,
+        "provider": null,
+        "status": null
+      },
+      "automatically_finalizes_at": null,
+      "billing_reason": "subscription_create",
+      "collection_method": "charge_automatically",
+      "created": 1786544956,
+      "currency": "usd",
+      "custom_fields": null,
+      "customer": "cus_V3keizcVcduqOE",
+      "customer_account": null,
+      "customer_address": null,
+      "customer_email": "sub-probe@example.com",
+      "customer_name": "Subscription Probe",
+      "customer_phone": null,
+      "customer_shipping": null,
+      "customer_tax_exempt": "none",
+      "customer_tax_ids": [],
+      "default_payment_method": null,
+      "default_source": null,
+      "default_tax_rates": [],
+      "description": null,
+      "discounts": [],
+      "due_date": null,
+      "effective_at": 1786544956,
+      "ending_balance": 0,
+      "footer": null,
+      "from_invoice": null,
+      "hosted_invoice_url": "https://invoice.stripe.com/i/acct_1U2Oq8JEmmOCtdLJ/test_YWNjdF8xVTJPcThKRW1tT0N0ZExKLF9WM2tlNk5DNmpzT2h1bEVaWGszTktZNGpUbjBvQlVLLDE3NzA4NTc1OA0200nNaxQz4D?s=ap",
+      "id": "in_1U3d9cJEmmOCtdLJPlNdCA4P",
+      "invoice_pdf": "https://pay.stripe.com/invoice/acct_1U2Oq8JEmmOCtdLJ/test_YWNjdF8xVTJPcThKRW1tT0N0ZExKLF9WM2tlNk5DNmpzT2h1bEVaWGszTktZNGpUbjBvQlVLLDE3NzA4NTc1OA0200nNaxQz4D/pdf?s=ap",
+      "issuer": {
+        "type": "self"
+      },
+      "last_finalization_error": null,
+      "latest_revision": null,
+      "lines": {
+        "data": [
+          {
+            "amount": 1499,
+            "currency": "usd",
+            "description": "1 \u00d7 GolfCoachNow (at $14.99 / month)",
+            "discount_amounts": [],
+            "discountable": true,
+            "discounts": [],
+            "id": "il_1U3d9cJEmmOCtdLJMpVtrZXd",
+            "invoice": "in_1U3d9cJEmmOCtdLJPlNdCA4P",
+            "livemode": false,
+            "metadata": {
+              "device_id": "probe_device_001",
+              "golf_coach_now": "wedge_unlock"
+            },
+            "object": "line_item",
+            "parent": {
+              "invoice_item_details": null,
+              "subscription_item_details": {
+                "invoice_item": null,
+                "proration": false,
+                "proration_details": {
+                  "credited_items": null
+                },
+                "subscription": "sub_1U3d9cJEmmOCtdLJe5fyTcta",
+                "subscription_item": "si_V3keFAqsvwnHsw"
+              },
+              "type": "subscription_item_details"
+            },
+            "period": {
+              "end": 1789223356,
+              "start": 1786544956
+            },
+            "pretax_credit_amounts": [],
+            "pricing": {
+              "price_details": {
+                "price": "price_1U3d9ZJEmmOCtdLJXPzmPrw6",
+                "product": "prod_V2UQ3z2Lv6wKuO"
+              },
+              "type": "price_details",
+              "unit_amount_decimal": "1499"
+            },
+            "quantity": 1,
+            "quantity_decimal": "1",
+            "subtotal": 1499,
+            "taxes": []
+          }
+        ],
+        "has_more": false,
+        "object": "list",
+        "total_count": 1,
+        "url": "/v1/invoices/in_1U3d9cJEmmOCtdLJPlNdCA4P/lines"
+      },
+      "livemode": false,
+      "metadata": {},
+      "next_payment_attempt": null,
+      "number": "PTIEAIHW-0001",
+      "object": "invoice",
+      "on_behalf_of": null,
+      "parent": {
+        "quote_details": null,
+        "subscription_details": {
+          "metadata": {
+            "device_id": "probe_device_001",
+            "golf_coach_now": "wedge_unlock"
+          },
+          "subscription": "sub_1U3d9cJEmmOCtdLJe5fyTcta"
+        },
+        "type": "subscription_details"
+      },
+      "payment_settings": {
+        "default_mandate": null,
+        "payment_method_options": null,
+        "payment_method_types": null
+      },
+      "period_end": 1786544956,
+      "period_start": 1786544956,
+      "post_payment_credit_notes_amount": 0,
+      "pre_payment_credit_notes_amount": 0,
+      "receipt_number": null,
+      "rendering": null,
+      "shipping_cost": null,
+      "shipping_details": null,
+      "starting_balance": 0,
+      "statement_descriptor": null,
+      "status": "paid",
+      "status_transitions": {
+        "finalized_at": 1786544956,
+        "marked_uncollectible_at": null,
+        "paid_at": 1786544956,
+        "voided_at": null
+      },
+      "subtotal": 1499,
+      "subtotal_excluding_tax": 1499,
+      "test_clock": null,
+      "total": 1499,
+      "total_discount_amounts": [],
+      "total_excluding_tax": 1499,
+      "total_pretax_credit_amounts": [],
+      "total_taxes": [],
+      "webhooks_delivered_at": 1786544956
+    }
+  },
+  "id": "evt_1U3d9eJEmmOCtdLJVxAxUcVR",
+  "livemode": false,
+  "object": "event",
+  "pending_webhooks": 0,
+  "request": {
+    "id": "req_aTthBJjUJu4GVe",
+    "idempotency_key": "62764d78-128c-390f-60c1-33b0bf93c337"
+  },
+  "type": "invoice.paid"
+}

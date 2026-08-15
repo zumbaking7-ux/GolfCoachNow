@@ -5,10 +5,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val GolfGreen = Color(0xFF34C759)
+val GolfGreen = Color(0xFFADCA34)
+val GolfGreenDark = Color(0xFF8FA825)
+val GolfGreenBorder = Color(0xAAADCA34)
+val GolfGreenDim = Color(0x1FADCA34)
 val DarkBackground = Color(0xFF000000)
-val DarkSurface = Color(0xFF1C1C1E)
-val DarkCard = Color(0xFF2C2C2E)
+val DarkSurface = Color(0xFF1A1A1C)
+val DarkCard = Color(0xFF0E0E0E)
+val GreetingBg = Color(0xFF0E0E0E)
+val TextDark = Color(0xFF121212)
+val TextMuted = Color(0xFF999999)
 val YellowAccent = Color(0xFFFFD60A)
 
 private val DarkColors = darkColorScheme(

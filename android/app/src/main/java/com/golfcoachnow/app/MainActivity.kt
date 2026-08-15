@@ -18,8 +18,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    var pendingModule by mutableStateOf<String?>(null)
-        private set
+    private var pendingDeepLink by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,10 +27,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GolfCoachNowTheme {
-                AppNavHost(
-                    pendingModule = pendingModule,
-                    onPendingConsumed = { pendingModule = null },
-                )
+                AppNavHost()
             }
         }
     }
@@ -58,15 +54,6 @@ class MainActivity : ComponentActivity() {
             }
             "payment-cancelled" -> {
                 Toast.makeText(this, "Payment cancelled", Toast.LENGTH_SHORT).show()
-            }
-            "mode" -> {
-                val path = uri.path?.trimStart('/') ?: return
-                pendingModule = when (path) {
-                    "swing" -> "SWING"
-                    "putt" -> "PUTT"
-                    "short_game", "short-game", "shortgame" -> "SHORT_GAME"
-                    else -> null
-                }
             }
         }
     }

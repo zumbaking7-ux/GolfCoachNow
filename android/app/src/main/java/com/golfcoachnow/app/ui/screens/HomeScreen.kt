@@ -1,212 +1,379 @@
 package com.golfcoachnow.app.ui.screens
 
 import android.content.Intent
-import android.net.Uri
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GolfCourse
-import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material.icons.filled.SportsGolf
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.golfcoachnow.app.R
 import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.data.model.GolfModule
-import com.golfcoachnow.app.ui.theme.DarkCard
-import com.golfcoachnow.app.ui.theme.GolfGreen
+import com.golfcoachnow.app.ui.theme.*
+import java.util.Calendar
 
 @Composable
-fun HomeScreen(onModuleSelected: (GolfModule) -> Unit) {
+fun HomeScreen(
+    onModuleSelected: (GolfModule) -> Unit,
+    onTalkMode: () -> Unit = {},
+) {
+    val scrollState = rememberScrollState()
     val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 24.dp)
-            .statusBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(DarkBackground)
+            .verticalScroll(scrollState),
     ) {
-        Spacer(Modifier.height(48.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "GolfCoachNow",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = GolfGreen,
-            )
-            Spacer(Modifier.width(8.dp))
-            IdentityPulse()
-        }
-
-        Text(
-            text = "Select your training mode",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-
-        Spacer(Modifier.height(40.dp))
-
-        ModuleCard(
-            module = GolfModule.SWING,
-            icon = Icons.Default.SportsGolf,
-            onClick = {
-                ApiClient.trackEvent("module_selected", GolfModule.SWING)
-                onModuleSelected(GolfModule.SWING)
-            },
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        ModuleCard(
-            module = GolfModule.PUTT,
-            icon = Icons.Default.GolfCourse,
-            onClick = {
-                ApiClient.trackEvent("module_selected", GolfModule.PUTT)
-                onModuleSelected(GolfModule.PUTT)
-            },
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        ModuleCard(
-            module = GolfModule.SHORT_GAME,
-            icon = Icons.Default.Landscape,
-            onClick = {
-                ApiClient.trackEvent("module_selected", GolfModule.SHORT_GAME)
-                onModuleSelected(GolfModule.SHORT_GAME)
-            },
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick = {
-                val intent = Intent(Intent.ACTION_SENDTO).apply {
-                    data = Uri.parse("mailto:support@golfcoachnow.net")
-                    putExtra(Intent.EXTRA_SUBJECT, "GolfCoachNow Feedback")
-                    putExtra(Intent.EXTRA_TEXT, "We'd love to hear from you. Tell us what's on your mind.\n\n")
-                }
-                context.startActivity(Intent.createChooser(intent, "Send feedback"))
-            },
-            modifier = Modifier.fillMaxWidth().height(44.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = GolfGreen.copy(alpha = 0.7f),
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, GolfGreen.copy(alpha = 0.12f)),
-        ) {
-            Text(
-                text = "✉  We'd love to hear from you",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun IdentityPulse() {
-    val transition = rememberInfiniteTransition(label = "pulse")
-    val alpha by transition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse),
-        label = "alpha",
-    )
-    val scale by transition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse),
-        label = "scale",
-    )
-
-    Box(contentAlignment = Alignment.Center) {
-        Box(
-            Modifier
-                .size(24.dp)
-                .scale(scale)
-                .alpha(alpha * 0.4f)
-                .border(1.5.dp, GolfGreen.copy(alpha = 0.3f), CircleShape)
-        )
-        Box(
-            Modifier
-                .size(10.dp)
-                .scale(scale)
-                .alpha(alpha)
-                .background(GolfGreen, CircleShape)
-        )
-    }
-}
-
-@Composable
-private fun ModuleCard(
-    module: GolfModule,
-    icon: ImageVector,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkCard),
-    ) {
-        Row(
+        // Banner
+        Image(
+            painter = painterResource(id = R.drawable.banner),
+            contentDescription = "GolfCoachNow Banner",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .height(180.dp),
+            contentScale = ContentScale.Crop,
+        )
+
+        // Greeting card overlapping banner
+        Box(
+            modifier = Modifier
+                .offset(y = (-24).dp)
+                .padding(horizontal = 16.dp),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = module.title,
-                tint = GolfGreen,
-                modifier = Modifier.size(40.dp),
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = module.title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.25f), spotColor = GolfGreen.copy(alpha = 0.25f))
+                    .clip(RoundedCornerShape(14.dp))
+                    .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
+                    .background(GreetingBg),
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.bg_pattern),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.6f,
                 )
-                Text(
-                    text = module.subtitle,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .height(64.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(GolfGreen),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+                                    append(timeGreeting())
+                                    append("\n")
+                                }
+                                withStyle(SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)) {
+                                    append("Golfer")
+                                }
+                            },
+                            fontSize = 24.sp,
+                            lineHeight = 30.sp,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "What would you like\nto learn today?",
+                            fontSize = 14.sp,
+                            color = Color(0xFFB3B3B3),
+                        )
+                    }
+                }
+            }
+        }
+
+        // Skill cards row
+        Row(
+            modifier = Modifier
+                .offset(y = (-12).dp)
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GolfModule.entries.forEach { module ->
+                SkillCard(
+                    module = module,
+                    iconRes = module.toIconRes(),
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        ApiClient.trackEvent("module_selected", module)
+                        onModuleSelected(module)
+                    },
                 )
             }
-            Icon(
-                imageVector = Icons.Default.SportsGolf,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp),
+        }
+
+        // Talk Mode card
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(0.65f)
+                    .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.3f), spotColor = GolfGreen.copy(alpha = 0.3f))
+                    .clip(RoundedCornerShape(14.dp))
+                    .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
+                    .background(DarkCard)
+                    .clickable(onClick = onTalkMode)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_talk_mode),
+                    contentDescription = "Talk Mode",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    contentScale = ContentScale.Fit,
+                )
+                Spacer(Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "TALK MODE",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = "Talk to your AI coach.\nGet instant answers.",
+                        fontSize = 9.sp,
+                        color = TextMuted,
+                        lineHeight = 12.sp,
+                    )
+                }
+                Image(
+                    painter = painterResource(id = R.drawable.ic_pulse),
+                    contentDescription = "Pulse",
+                    modifier = Modifier.size(32.dp),
+                    contentScale = ContentScale.Fit,
+                )
+                Spacer(Modifier.width(4.dp))
+                Image(
+                    painter = painterResource(id = R.drawable.ic_arrow),
+                    contentDescription = "Go",
+                    modifier = Modifier.size(18.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+        }
+
+        // Action row
+        Row(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ActionCard(
+                iconRes = R.drawable.ic_share,
+                title = "SHARE",
+                description = "Golf Coach Now",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            "Check out GolfCoachNow — AI-powered golf coaching for your swing, putt, and short game.",
+                        )
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Share"))
+                },
+            )
+            ActionCard(
+                iconRes = R.drawable.ic_connect,
+                title = "CONNECT",
+                description = "Share your ideas with the founder",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "message/rfc822"
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("jmt_mcgraw@yahoo.com"))
+                        putExtra(Intent.EXTRA_SUBJECT, "GolfCoachNow Feedback")
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Send feedback"))
+                },
             )
         }
+    }
+}
+
+@Composable
+private fun SkillCard(
+    module: GolfModule,
+    iconRes: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.25f), spotColor = GolfGreen.copy(alpha = 0.25f))
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
+            .background(DarkCard)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = module.title,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = module.title.uppercase(),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = module.cardDescription,
+            fontSize = 10.sp,
+            color = TextMuted,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            lineHeight = 13.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 1.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFF618C1F), RoundedCornerShape(8.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF8FC238),
+                            Color(0xFF6B9E24),
+                        ),
+                    ),
+                )
+                .padding(vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "START ${module.title.uppercase()} →",
+                fontSize = if (module == GolfModule.SHORT_GAME) 8.sp else 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.Black,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionCard(
+    iconRes: Int,
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .height(90.dp)
+            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.25f), spotColor = GolfGreen.copy(alpha = 0.25f))
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
+            .background(DarkCard)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = title,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                color = TextMuted,
+                maxLines = 2,
+                lineHeight = 14.sp,
+            )
+        }
+        Image(
+            painter = painterResource(id = R.drawable.ic_arrow),
+            contentDescription = "Go",
+            modifier = Modifier.size(20.dp),
+            contentScale = ContentScale.Fit,
+        )
+    }
+}
+
+private fun GolfModule.toIconRes(): Int = when (this) {
+    GolfModule.SWING -> R.drawable.ic_swing
+    GolfModule.PUTT -> R.drawable.ic_putt
+    GolfModule.SHORT_GAME -> R.drawable.ic_short_game
+}
+
+private fun timeGreeting(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    return when (hour) {
+        in 5..11 -> "Good morning,"
+        in 12..16 -> "Good afternoon,"
+        else -> "Good evening,"
     }
 }

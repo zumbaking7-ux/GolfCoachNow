@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -21,10 +22,20 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://golfcoachnow.pythonanywhere.com\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("golfcoachnow-release.jks")
+            storePassword = "golfcoach2026"
+            keyAlias = "golfcoachnow"
+            keyPassword = "golfcoach2026"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -84,6 +95,10 @@ dependencies {
 
     // DataStore (preferences)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation("com.google.firebase:firebase-analytics")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
