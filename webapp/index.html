@@ -142,6 +142,29 @@ border:1px solid var(--green-border);background:var(--card);cursor:pointer;color
 font-size:13px;font-weight:700}
 .share-btn img{width:16px;height:16px}
 
+/* ── Account Row ── */
+.account-row{display:flex;justify-content:flex-end;align-items:center;padding:6px 12px 0;gap:8px}
+.account-row #account-info{flex:1;font-size:11px;color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-btn{background:none;border:1px solid var(--green-border);border-radius:8px;color:var(--green);
+font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer}
+
+/* ── Login Screen ── */
+.login-screen{background:var(--bg)}
+.login-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:24px;padding-top:48px}
+.login-icon{font-size:48px;margin-bottom:16px}
+.login-content h2{font-size:26px;font-weight:700;color:var(--white);margin-bottom:8px}
+.login-content p{font-size:14px;color:var(--muted);text-align:center;margin-bottom:32px;line-height:1.5}
+.login-input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--green-border);
+background:var(--card);color:var(--white);font-size:16px;outline:none;margin-bottom:16px}
+.login-input:focus{border-color:var(--green);box-shadow:0 0 12px var(--green-glow)}
+.login-btn{width:100%;padding:14px;border-radius:14px;border:1px solid #618c1f;
+background:linear-gradient(to bottom,#8fc238,#6b9e24);color:#000;font-size:16px;
+font-weight:700;cursor:pointer}
+.login-btn:disabled{opacity:0.4;cursor:default}
+.login-link{background:none;border:none;color:var(--green);font-size:14px;cursor:pointer;margin-top:16px;
+font-weight:600}
+.login-error{color:var(--red);font-size:13px;text-align:center;margin-top:16px;min-height:20px}
+
 /* ── Talk Mode ── */
 .talk-screen{align-items:center}
 .talk-screen .pulse-icon{width:48px;margin-top:24px}
@@ -201,6 +224,10 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 <!-- ════════ HOME SCREEN ════════ -->
 <div id="home" class="screen active">
 <div class="scrollable">
+  <div class="account-row">
+    <div id="account-info"></div>
+    <button id="account-btn" class="account-btn" onclick="handleAccountBtn()">Sign In</button>
+  </div>
   <img class="banner" src="/static/img/banner.png" alt="GolfCoachNow">
 
   <div class="greeting-wrap">
@@ -392,6 +419,33 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 <button class="restore-btn" onclick="restorePurchase()">Already subscribed? Restore</button>
 </div>
 
+<!-- ════════ LOGIN SCREEN ════════ -->
+<div id="login" class="screen login-screen">
+<div class="topbar">
+  <button class="back" onclick="goHome()">←</button>
+  <div class="title">SIGN IN</div>
+  <div style="width:40px"></div>
+</div>
+<div class="login-content">
+  <div class="login-icon">🏌️</div>
+  <h2 id="login-title">Sign In</h2>
+  <p id="login-subtitle">Enter your email to receive a sign-in code</p>
+
+  <div id="login-email-step">
+    <input type="email" id="login-email" class="login-input" placeholder="Email address" autocomplete="email">
+    <button class="login-btn" id="login-send-btn" onclick="loginSendCode()">Send Code</button>
+  </div>
+
+  <div id="login-code-step" style="display:none">
+    <input type="text" id="login-code" class="login-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+    <button class="login-btn" id="login-verify-btn" onclick="loginVerifyCode()">Verify</button>
+    <button class="login-link" onclick="loginBackToEmail()">Use different email</button>
+  </div>
+
+  <div id="login-error" class="login-error"></div>
+</div>
+</div>
+
 </div><!-- /phone-frame -->
 
 <script>
@@ -407,6 +461,8 @@ let recordedChunks = [];
 let recognition = null;
 let ttsUtterance = null;
 let lastCorrection = {};
+let authToken = localStorage.getItem('gcn_auth_token');
+let authEmail = localStorage.getItem('gcn_auth_email');
 
 // ── Navigation ──
 function showScreen(id) {
@@ -416,11 +472,102 @@ function showScreen(id) {
 function goHome() { stopCameraStream(); showScreen('home'); }
 
 // ── Greeting ──
-(function() {
+function updateGreeting() {
   const h = new Date().getHours();
   const g = h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
-  document.getElementById('greeting-text').innerHTML = g + '<br><span>Golfer</span>';
-})();
+  const name = authEmail ? authEmail.split('@')[0] : 'Golfer';
+  document.getElementById('greeting-text').innerHTML = g + '<br><span>' + name + '</span>';
+}
+updateGreeting();
+
+// ── Account ──
+function updateAccountUI() {
+  const info = document.getElementById('account-info');
+  const btn = document.getElementById('account-btn');
+  if (authToken && authEmail) {
+    info.textContent = authEmail;
+    btn.textContent = 'Sign Out';
+  } else {
+    info.textContent = '';
+    btn.textContent = 'Sign In';
+  }
+  updateGreeting();
+}
+function handleAccountBtn() {
+  if (authToken) {
+    fetch(API + '/auth/sign-out', {method:'POST', headers:{'Authorization':'Bearer '+authToken}}).catch(()=>{});
+    authToken = null; authEmail = null;
+    localStorage.removeItem('gcn_auth_token');
+    localStorage.removeItem('gcn_auth_email');
+    updateAccountUI();
+  } else {
+    document.getElementById('login-email-step').style.display = '';
+    document.getElementById('login-code-step').style.display = 'none';
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-code').value = '';
+    document.getElementById('login-title').textContent = 'Sign In';
+    document.getElementById('login-subtitle').textContent = 'Enter your email to receive a sign-in code';
+    showScreen('login');
+  }
+}
+async function loginSendCode() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email.includes('@')) { document.getElementById('login-error').textContent = 'Enter a valid email'; return; }
+  const btn = document.getElementById('login-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  document.getElementById('login-error').textContent = '';
+  try {
+    const res = await fetch(API + '/auth/request-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email})
+    });
+    if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
+    if (!res.ok) throw new Error('Failed to send code');
+    document.getElementById('login-email-step').style.display = 'none';
+    document.getElementById('login-code-step').style.display = '';
+    document.getElementById('login-title').textContent = 'Enter Code';
+    document.getElementById('login-subtitle').textContent = 'We sent a 6-digit code to ' + email;
+  } catch(e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Send Code';
+}
+async function loginVerifyCode() {
+  const email = document.getElementById('login-email').value.trim();
+  const code = document.getElementById('login-code').value.trim();
+  if (code.length !== 6) { document.getElementById('login-error').textContent = 'Enter the 6-digit code'; return; }
+  const btn = document.getElementById('login-verify-btn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  document.getElementById('login-error').textContent = '';
+  try {
+    const res = await fetch(API + '/auth/verify-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, code, device_id: deviceId})
+    });
+    if (res.status === 401) throw new Error('Invalid or expired code. Try again.');
+    if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
+    if (!res.ok) throw new Error('Verification failed');
+    const data = await res.json();
+    authToken = data.token; authEmail = email;
+    localStorage.setItem('gcn_auth_token', authToken);
+    localStorage.setItem('gcn_auth_email', authEmail);
+    updateAccountUI();
+    goHome();
+  } catch(e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Verify';
+}
+function loginBackToEmail() {
+  document.getElementById('login-email-step').style.display = '';
+  document.getElementById('login-code-step').style.display = 'none';
+  document.getElementById('login-code').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-title').textContent = 'Sign In';
+  document.getElementById('login-subtitle').textContent = 'Enter your email to receive a sign-in code';
+}
+updateAccountUI();
 
 // ── Share ──
 function shareApp() {

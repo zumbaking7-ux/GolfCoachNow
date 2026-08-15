@@ -39,3 +39,13 @@ data class EntitlementResponse(
     @SerialName("reps_remaining") val repsRemaining: Int = -1,
     @SerialName("daily_limit") val dailyLimit: Int = -1,
 )
+
+@Serializable
+data class VerifyCodeResponse(
+    val token: String = "",
+)
+
+@Serializable
+data class RequestCodeResponse(
+    val status: String = "",
+)

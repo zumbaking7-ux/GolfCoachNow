@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.golfcoachnow.app.ui.navigation.AppNavHost
 import com.golfcoachnow.app.ui.theme.GolfCoachNowTheme
+import com.golfcoachnow.app.util.AuthManager
 import com.golfcoachnow.app.util.EntitlementManager
 import kotlinx.coroutines.launch
 
@@ -24,6 +25,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleIntent(intent)
+
+        lifecycleScope.launch {
+            AuthManager.load(this@MainActivity)
+        }
 
         setContent {
             GolfCoachNowTheme {

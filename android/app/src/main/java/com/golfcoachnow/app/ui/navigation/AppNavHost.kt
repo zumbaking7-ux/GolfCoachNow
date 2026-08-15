@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.golfcoachnow.app.data.model.GolfModule
 import com.golfcoachnow.app.ui.screens.CameraScreen
 import com.golfcoachnow.app.ui.screens.HomeScreen
+import com.golfcoachnow.app.ui.screens.LoginScreen
 import com.golfcoachnow.app.ui.screens.PaywallScreen
 import com.golfcoachnow.app.ui.screens.TalkModeScreen
 
@@ -17,6 +18,7 @@ object Routes {
     const val CAMERA = "camera/{module}"
     const val PAYWALL = "paywall"
     const val TALK = "talk/{module}"
+    const val LOGIN = "login"
 
     fun camera(module: GolfModule) = "camera/${module.name}"
     fun talk(module: GolfModule) = "talk/${module.name}"
@@ -35,6 +37,16 @@ fun AppNavHost() {
                 onTalkMode = {
                     navController.navigate(Routes.talk(GolfModule.SWING))
                 },
+                onLogin = {
+                    navController.navigate(Routes.LOGIN)
+                },
+            )
+        }
+
+        composable(Routes.LOGIN) {
+            LoginScreen(
+                onBack = { navController.popBackStack() },
+                onSignedIn = { navController.popBackStack() },
             )
         }
 

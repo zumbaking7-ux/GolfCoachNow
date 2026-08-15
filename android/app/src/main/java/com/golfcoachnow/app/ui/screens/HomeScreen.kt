@@ -17,6 +17,9 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,15 +40,20 @@ import com.golfcoachnow.app.R
 import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.data.model.GolfModule
 import com.golfcoachnow.app.ui.theme.*
+import com.golfcoachnow.app.util.AuthManager
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 @Composable
 fun HomeScreen(
     onModuleSelected: (GolfModule) -> Unit,
     onTalkMode: () -> Unit = {},
+    onLogin: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val userEmail by AuthManager.email.collectAsState()
 
     Column(
         modifier = Modifier
@@ -62,6 +70,37 @@ fun HomeScreen(
                 .height(180.dp),
             contentScale = ContentScale.Crop,
         )
+
+        // Account row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (userEmail != null) {
+                Text(
+                    text = userEmail!!,
+                    fontSize = 12.sp,
+                    color = GolfGreen,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = {
+                    scope.launch {
+                        AuthManager.token?.let { ApiClient.signOut(it) }
+                        AuthManager.signOut(context)
+                    }
+                }) {
+                    Text("Sign Out", color = TextMuted, fontSize = 12.sp)
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onLogin) {
+                    Text("Sign In", color = GolfGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
 
         // Greeting card overlapping banner
         Box(

@@ -130,6 +130,53 @@ object ApiClient {
             }
         }
 
+    suspend fun requestCode(email: String): Result<RequestCodeResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = """{"email":"$email"}"""
+                val request = Request.Builder()
+                    .url("$baseUrl/auth/request-code")
+                    .post(payload.toRequestBody("application/json".toMediaType()))
+                    .build()
+                val response = client.newCall(request).execute()
+                handleResponse<RequestCodeResponse>(response)
+            } catch (e: IOException) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun verifyCode(
+        email: String,
+        code: String,
+        deviceId: String,
+    ): Result<VerifyCodeResponse> = withContext(Dispatchers.IO) {
+        try {
+            val payload = """{"email":"$email","code":"$code","device_id":"$deviceId"}"""
+            val request = Request.Builder()
+                .url("$baseUrl/auth/verify-code")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            val response = client.newCall(request).execute()
+            handleResponse<VerifyCodeResponse>(response)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signOut(token: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/auth/sign-out")
+                .post("".toRequestBody())
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            client.newCall(request).execute().close()
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
     fun trackEvent(name: String, module: GolfModule? = null) {
         val payload = buildString {
             append("{\"device_id\":\"${com.golfcoachnow.app.util.EntitlementManager.deviceId}\"")
