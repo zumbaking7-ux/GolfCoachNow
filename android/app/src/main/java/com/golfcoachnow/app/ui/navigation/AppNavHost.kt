@@ -9,19 +9,19 @@ import androidx.navigation.navArgument
 import com.golfcoachnow.app.data.model.GolfModule
 import com.golfcoachnow.app.ui.screens.CameraScreen
 import com.golfcoachnow.app.ui.screens.HomeScreen
+import com.golfcoachnow.app.ui.screens.InstructionalVideoScreen
 import com.golfcoachnow.app.ui.screens.LoginScreen
 import com.golfcoachnow.app.ui.screens.PaywallScreen
-import com.golfcoachnow.app.ui.screens.TalkModeScreen
 
 object Routes {
     const val HOME = "home"
+    const val VIDEO = "video/{module}"
     const val CAMERA = "camera/{module}"
     const val PAYWALL = "paywall"
-    const val TALK = "talk/{module}"
     const val LOGIN = "login"
 
+    fun video(module: GolfModule) = "video/${module.name}"
     fun camera(module: GolfModule) = "camera/${module.name}"
-    fun talk(module: GolfModule) = "talk/${module.name}"
 }
 
 @Composable
@@ -32,10 +32,7 @@ fun AppNavHost() {
         composable(Routes.HOME) {
             HomeScreen(
                 onModuleSelected = { module ->
-                    navController.navigate(Routes.camera(module))
-                },
-                onTalkMode = {
-                    navController.navigate(Routes.talk(GolfModule.SWING))
+                    navController.navigate(Routes.video(module))
                 },
                 onLogin = {
                     navController.navigate(Routes.LOGIN)
@@ -51,6 +48,25 @@ fun AppNavHost() {
         }
 
         composable(
+            route = Routes.VIDEO,
+            arguments = listOf(navArgument("module") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val moduleName = backStackEntry.arguments?.getString("module") ?: "SWING"
+            val module = GolfModule.valueOf(moduleName)
+            InstructionalVideoScreen(
+                module = module,
+                onFinished = {
+                    // Replace the video in the back stack rather than stacking on
+                    // top of it, so backing out of the camera returns home instead
+                    // of replaying the clip the golfer just watched.
+                    navController.navigate(Routes.camera(module)) {
+                        popUpTo(Routes.VIDEO) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(
             route = Routes.CAMERA,
             arguments = listOf(navArgument("module") { type = NavType.StringType })
         ) { backStackEntry ->
@@ -60,7 +76,6 @@ fun AppNavHost() {
                 module = module,
                 onBack = { navController.popBackStack() },
                 onPaywall = { navController.navigate(Routes.PAYWALL) },
-                onTalkMode = { navController.navigate(Routes.talk(module)) },
             )
         }
 
@@ -68,18 +83,6 @@ fun AppNavHost() {
             PaywallScreen(
                 onBack = { navController.popBackStack() },
                 onUnlocked = { navController.popBackStack() },
-            )
-        }
-
-        composable(
-            route = Routes.TALK,
-            arguments = listOf(navArgument("module") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val moduleName = backStackEntry.arguments?.getString("module") ?: "SWING"
-            val module = GolfModule.valueOf(moduleName)
-            TalkModeScreen(
-                module = module,
-                onBack = { navController.popBackStack() },
             )
         }
     }

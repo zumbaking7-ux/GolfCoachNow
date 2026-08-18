@@ -42,6 +42,7 @@ import com.golfcoachnow.app.data.api.ApiClient
 import com.golfcoachnow.app.data.api.ApiException
 import com.golfcoachnow.app.data.model.CorrectionResponse
 import com.golfcoachnow.app.data.model.GolfModule
+import com.golfcoachnow.app.ui.components.VideoPlayer
 import com.golfcoachnow.app.ui.theme.*
 import com.golfcoachnow.app.util.EntitlementManager
 import kotlinx.coroutines.launch
@@ -52,7 +53,6 @@ fun CameraScreen(
     module: GolfModule,
     onBack: () -> Unit,
     onPaywall: () -> Unit,
-    onTalkMode: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -80,6 +80,10 @@ fun CameraScreen(
     var repCount by remember { mutableIntStateOf(0) }
     var statusText by remember { mutableStateOf("Tap record to start") }
     var correction by remember { mutableStateOf<CorrectionResponse?>(null) }
+
+    // Set only while the correction clip is on screen. The written correction
+    // sits underneath it the whole time and is what remains once it clears.
+    var correctionVideoUrl by remember { mutableStateOf<String?>(null) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
     var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
 
@@ -258,6 +262,7 @@ fun CameraScreen(
                         isRecording = false
                     } else {
                         correction = null
+                        correctionVideoUrl = null
                         statusText = "Recording..."
                         isRecording = true
                         repCount++
@@ -286,6 +291,8 @@ fun CameraScreen(
                                                 )
                                                 result.onSuccess { resp ->
                                                     correction = resp
+                                                    correctionVideoUrl =
+                                                        resp.correctionVideoUrl?.takeIf { it.isNotBlank() }
                                                     statusText = ""
                                                     ApiClient.trackEvent("rep_completed", module)
                                                 }.onFailure { err ->
@@ -328,6 +335,17 @@ fun CameraScreen(
             }
 
             Spacer(Modifier.size(56.dp))
+        }
+
+        // Wire four. Declared last so it covers the camera and the correction
+        // card while it plays; clearing the url reveals the written correction
+        // that was already sitting underneath.
+        correctionVideoUrl?.let { videoUrl ->
+            VideoPlayer(
+                url = videoUrl,
+                onFinished = { correctionVideoUrl = null },
+                modifier = Modifier.matchParentSize(),
+            )
         }
     }
 }

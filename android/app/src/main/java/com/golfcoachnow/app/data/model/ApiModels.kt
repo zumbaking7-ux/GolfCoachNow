@@ -8,6 +8,36 @@ data class CorrectionResponse(
     @SerialName("dominant_fault") val dominantFault: String = "",
     val correction: String = "",
     @SerialName("normalized_scores") val normalizedScores: Map<String, Double> = emptyMap(),
+    // Null until the asset for this fault is published. The written correction
+    // above is always present, so a missing clip costs polish, not coaching.
+    @SerialName("correction_video_url") val correctionVideoUrl: String? = null,
+)
+
+@Serializable
+data class InstructionalVideoResponse(
+    val module: String = "",
+    val url: String? = null,
+)
+
+// Built as objects and serialised properly rather than interpolated into a
+// string. The founder message is free-form text a person types, so a quote or a
+// newline in it would otherwise produce malformed JSON and a confusing 422.
+@Serializable
+data class ShareInviteRequest(
+    val email: String,
+    @SerialName("device_id") val deviceId: String,
+)
+
+@Serializable
+data class FounderMessageRequest(
+    val message: String,
+    val email: String? = null,
+    @SerialName("device_id") val deviceId: String,
+)
+
+@Serializable
+data class AcceptedResponse(
+    val status: String = "",
 )
 
 @Serializable

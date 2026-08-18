@@ -19,7 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,13 +50,22 @@ import java.util.Calendar
 @Composable
 fun HomeScreen(
     onModuleSelected: (GolfModule) -> Unit,
-    onTalkMode: () -> Unit = {},
     onLogin: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userEmail by AuthManager.email.collectAsState()
+
+    var showShareDialog by remember { mutableStateOf(false) }
+    var showFounderDialog by remember { mutableStateOf(false) }
+
+    if (showShareDialog) {
+        ShareWithFriendDialog(onDismiss = { showShareDialog = false })
+    }
+    if (showFounderDialog) {
+        ConnectFounderDialog(onDismiss = { showFounderDialog = false })
+    }
 
     Column(
         modifier = Modifier
@@ -180,64 +192,8 @@ fun HomeScreen(
             }
         }
 
-        // Talk Mode card
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(0.65f)
-                    .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = GolfGreen.copy(alpha = 0.3f), spotColor = GolfGreen.copy(alpha = 0.3f))
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
-                    .background(DarkCard)
-                    .clickable(onClick = onTalkMode)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_talk_mode),
-                    contentDescription = "Talk Mode",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(6.dp)),
-                    contentScale = ContentScale.Fit,
-                )
-                Spacer(Modifier.width(6.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "TALK MODE",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                    )
-                    Text(
-                        text = "Talk to your AI coach.\nGet instant answers.",
-                        fontSize = 9.sp,
-                        color = TextMuted,
-                        lineHeight = 12.sp,
-                    )
-                }
-                Image(
-                    painter = painterResource(id = R.drawable.ic_pulse),
-                    contentDescription = "Pulse",
-                    modifier = Modifier.size(32.dp),
-                    contentScale = ContentScale.Fit,
-                )
-                Spacer(Modifier.width(4.dp))
-                Image(
-                    painter = painterResource(id = R.drawable.ic_arrow),
-                    contentDescription = "Go",
-                    modifier = Modifier.size(18.dp),
-                    contentScale = ContentScale.Fit,
-                )
-            }
-        }
-
-        // Action row
+        // Action row. Connect sits on the left and Share on the right, and the
+        // two cards carry equal weight so they read as a matched pair.
         Row(
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -246,34 +202,18 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ActionCard(
-                iconRes = R.drawable.ic_share,
-                title = "SHARE",
-                description = "Golf Coach Now",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(
-                            Intent.EXTRA_TEXT,
-                            "Check out GolfCoachNow — AI-powered golf coaching for your swing, putt, and short game.",
-                        )
-                    }
-                    context.startActivity(Intent.createChooser(intent, "Share"))
-                },
-            )
-            ActionCard(
                 iconRes = R.drawable.ic_connect,
                 title = "CONNECT",
-                description = "Share your ideas with the founder",
+                description = "The founder welcomes your thoughts",
                 modifier = Modifier.weight(1f),
-                onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "message/rfc822"
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf("jmt_mcgraw@yahoo.com"))
-                        putExtra(Intent.EXTRA_SUBJECT, "GolfCoachNow Feedback")
-                    }
-                    context.startActivity(Intent.createChooser(intent, "Send feedback"))
-                },
+                onClick = { showFounderDialog = true },
+            )
+            ActionCard(
+                iconRes = R.drawable.ic_share,
+                title = "SHARE",
+                description = "Send the app to a friend",
+                modifier = Modifier.weight(1f),
+                onClick = { showShareDialog = true },
             )
         }
     }

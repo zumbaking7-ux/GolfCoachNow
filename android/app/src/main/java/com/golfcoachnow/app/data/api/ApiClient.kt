@@ -4,6 +4,7 @@ import com.golfcoachnow.app.BuildConfig
 import com.golfcoachnow.app.data.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -129,6 +130,54 @@ object ApiClient {
                 Result.failure(e)
             }
         }
+
+    suspend fun getInstructionalVideo(module: GolfModule): Result<InstructionalVideoResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/videos/instructional?module=${module.uploadParam}")
+                    .get()
+                    .build()
+
+                val response = client.newCall(request).execute()
+                handleResponse<InstructionalVideoResponse>(response)
+            } catch (e: IOException) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun shareWithFriend(email: String, deviceId: String): Result<AcceptedResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = json.encodeToString(ShareInviteRequest(email, deviceId))
+                val request = Request.Builder()
+                    .url("$baseUrl/share/invite")
+                    .post(payload.toRequestBody("application/json".toMediaType()))
+                    .build()
+                handleResponse<AcceptedResponse>(client.newCall(request).execute())
+            } catch (e: IOException) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun messageFounder(
+        message: String,
+        email: String?,
+        deviceId: String,
+    ): Result<AcceptedResponse> = withContext(Dispatchers.IO) {
+        try {
+            val payload = json.encodeToString(
+                FounderMessageRequest(message, email?.takeIf { it.isNotBlank() }, deviceId)
+            )
+            val request = Request.Builder()
+                .url("$baseUrl/connect/founder")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            handleResponse<AcceptedResponse>(client.newCall(request).execute())
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun requestCode(email: String): Result<RequestCodeResponse> =
         withContext(Dispatchers.IO) {

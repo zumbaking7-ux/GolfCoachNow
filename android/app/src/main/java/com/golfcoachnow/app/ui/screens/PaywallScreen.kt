@@ -104,7 +104,6 @@ fun PaywallScreen(
             FeatureRow(R.drawable.ic_swing, "Unlimited swing analysis")
             FeatureRow(R.drawable.ic_putt, "Unlimited putting analysis")
             FeatureRow(R.drawable.ic_short_game, "Unlimited short game analysis")
-            FeatureRow(R.drawable.ic_talk_mode, "Talk Mode — voice coaching")
             FeatureRow(R.drawable.ic_share, "Share corrections")
         }
 
