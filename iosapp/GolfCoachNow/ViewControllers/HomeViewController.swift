@@ -74,18 +74,6 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         return s
     }()
 
-    // MARK: - Talk Mode Card
-
-    private let talkModeCard: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = Theme.cardBackground
-        v.layer.cornerRadius = Theme.cardRadius
-        v.layer.borderWidth = 1
-        v.layer.borderColor = Theme.greenBorder.cgColor
-        return v
-    }()
-
     // MARK: - Action Row
 
     private let actionStack: UIStackView = {
@@ -147,13 +135,11 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         contentView.addSubview(bannerImageView)
         contentView.addSubview(greetingCard)
         contentView.addSubview(skillStack)
-        contentView.addSubview(talkModeCard)
         contentView.addSubview(actionStack)
         contentView.addSubview(accountButton)
 
         setupGreetingCard()
         setupSkillCards()
-        setupTalkModeCard()
         setupActionRow()
 
         accountButton.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
@@ -183,10 +169,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             skillStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.screenPadding),
             skillStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Theme.screenPadding),
 
-            talkModeCard.topAnchor.constraint(equalTo: skillStack.bottomAnchor, constant: Theme.cardGap),
-            talkModeCard.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-
-            actionStack.topAnchor.constraint(equalTo: talkModeCard.bottomAnchor, constant: Theme.cardGap),
+            actionStack.topAnchor.constraint(equalTo: skillStack.bottomAnchor, constant: Theme.cardGap),
             actionStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.screenPadding),
             actionStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Theme.screenPadding),
 
@@ -323,74 +306,23 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
 
     // MARK: - Action Row
 
-    private func setupTalkModeCard() {
-        let iconView = UIImageView()
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            .applying(UIImage.SymbolConfiguration(hierarchicalColor: Theme.green))
-        iconView.image = UIImage(systemName: "mic.fill", withConfiguration: config)
-        iconView.contentMode = .scaleAspectFit
-
-        let titleLabel = UILabel()
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "TALK MODE"
-        titleLabel.font = .systemFont(ofSize: 14, weight: .bold)
-        titleLabel.textColor = Theme.textPrimary
-
-        let pulseIcon = UIImageView()
-        pulseIcon.translatesAutoresizingMaskIntoConstraints = false
-        let pulseConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-            .applying(UIImage.SymbolConfiguration(hierarchicalColor: Theme.green))
-        pulseIcon.image = UIImage(systemName: "waveform.path.ecg", withConfiguration: pulseConfig)
-        pulseIcon.contentMode = .scaleAspectFit
-
-        talkModeCard.addSubview(iconView)
-        talkModeCard.addSubview(titleLabel)
-        talkModeCard.addSubview(pulseIcon)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: talkModeCard.leadingAnchor, constant: 16),
-            iconView.centerYAnchor.constraint(equalTo: talkModeCard.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 22),
-            iconView.heightAnchor.constraint(equalToConstant: 22),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
-            titleLabel.centerYAnchor.constraint(equalTo: talkModeCard.centerYAnchor),
-
-            pulseIcon.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
-            pulseIcon.trailingAnchor.constraint(equalTo: talkModeCard.trailingAnchor, constant: -16),
-            pulseIcon.centerYAnchor.constraint(equalTo: talkModeCard.centerYAnchor),
-            pulseIcon.widthAnchor.constraint(equalToConstant: 22),
-            pulseIcon.heightAnchor.constraint(equalToConstant: 22),
-
-            talkModeCard.heightAnchor.constraint(equalToConstant: 48),
-        ])
-
-        talkModeCard.layer.shadowColor = Theme.green.cgColor
-        talkModeCard.layer.shadowOffset = .zero
-        talkModeCard.layer.shadowRadius = 8
-        talkModeCard.layer.shadowOpacity = 0.3
-
-        let tap = UITapGestureRecognizer(target: self, action: #selector(talkModeTapped))
-        talkModeCard.addGestureRecognizer(tap)
-        talkModeCard.isUserInteractionEnabled = true
-    }
-
     private func setupActionRow() {
-        let sendCard = makeActionCard(
-            icon: "bubble.left.fill",
-            title: "SHARE",
-            description: "Share Golf Coach Now",
-            action: #selector(sendTapped)
-        )
+        // Connect on the left, Share on the right, as specified. The stack
+        // distributes them equally, so the two read as a matched pair.
         let connectCard = makeActionCard(
             icon: "headphones",
             title: "CONNECT",
-            description: "Share your thoughts with the founder",
+            description: "The founder welcomes your thoughts",
             action: #selector(connectTapped)
         )
-        actionStack.addArrangedSubview(sendCard)
+        let shareCard = makeActionCard(
+            icon: "bubble.left.fill",
+            title: "SHARE",
+            description: "Send the app to a friend",
+            action: #selector(sendTapped)
+        )
         actionStack.addArrangedSubview(connectCard)
+        actionStack.addArrangedSubview(shareCard)
     }
 
     private func makeActionCard(icon: String, title: String, description: String, action: Selector) -> UIView {
@@ -473,26 +405,54 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         }
 
         APIClient.shared.trackEvent("module_selected", module: module)
-        let cameraVC = CameraViewController(module: module)
-        navigationController?.pushViewController(cameraVC, animated: true)
+        playInstructionalVideo(for: module) { [weak self] in
+            let cameraVC = CameraViewController(module: module)
+            self?.navigationController?.pushViewController(cameraVC, animated: true)
+        }
     }
 
-    @objc private func talkModeTapped() {
-        let talkVC = TalkModeViewController(module: .swing)
-        talkVC.modalPresentationStyle = .fullScreen
-        present(talkVC, animated: true)
+    /// Plays the instructional clip and then runs `next`.
+    ///
+    /// `next` runs immediately when there is no clip to play, when the lookup
+    /// fails, or when the url is unusable. The golfer tapped an engine to
+    /// record something, and a coaching clip is never worth blocking that on.
+    private func playInstructionalVideo(for module: GolfModule, then next: @escaping () -> Void) {
+        APIClient.shared.fetchInstructionalVideo(module: module) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else {
+                    next()
+                    return
+                }
+
+                switch result {
+                case .success(let response):
+                    guard
+                        let urlString = response.url,
+                        let url = URL(string: urlString)
+                    else {
+                        next()
+                        return
+                    }
+                    self.present(
+                        VideoPlayerViewController(url: url, onFinished: next),
+                        animated: false
+                    )
+                case .failure:
+                    next()
+                }
+            }
+        }
     }
 
     @objc private func sendTapped() {
-        let text = "Check out GolfCoachNow — AI-powered golf coaching for your swing, putt, and short game."
-        let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        present(activityVC, animated: true)
+        // Was the system share sheet, which left the golfer to address and send
+        // it themselves. This collects the friend's address and our own backend
+        // sends the invite.
+        present(ContactSheetViewController(mode: .shareWithFriend), animated: true)
     }
 
     @objc private func connectTapped() {
-        let founderVC = FounderMessageViewController()
-        founderVC.modalPresentationStyle = .fullScreen
-        present(founderVC, animated: true)
+        present(ContactSheetViewController(mode: .connectWithFounder), animated: true)
     }
 
     @objc private func accountTapped() {

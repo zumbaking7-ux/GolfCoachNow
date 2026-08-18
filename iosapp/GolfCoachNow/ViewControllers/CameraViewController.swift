@@ -139,17 +139,6 @@ final class CameraViewController: UIViewController {
         return btn
     }()
 
-    private let talkButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-        btn.setImage(UIImage(systemName: "waveform", withConfiguration: config), for: .normal)
-        btn.tintColor = .black
-        btn.backgroundColor = .systemGreen
-        btn.layer.cornerRadius = 22
-        return btn
-    }()
-
     private let statusLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -208,12 +197,10 @@ final class CameraViewController: UIViewController {
         view.addSubview(statusLabel)
         view.addSubview(recordButton)
         view.addSubview(flipButton)
-        view.addSubview(talkButton)
 
         recordButton.addTarget(self, action: #selector(recordTapped), for: .touchUpInside)
         flipButton.addTarget(self, action: #selector(flipTapped), for: .touchUpInside)
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        talkButton.addTarget(self, action: #selector(talkTapped), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
@@ -264,11 +251,6 @@ final class CameraViewController: UIViewController {
             flipButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             flipButton.widthAnchor.constraint(equalToConstant: 44),
             flipButton.heightAnchor.constraint(equalToConstant: 44),
-
-            talkButton.centerYAnchor.constraint(equalTo: recordButton.centerYAnchor),
-            talkButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            talkButton.widthAnchor.constraint(equalToConstant: 44),
-            talkButton.heightAnchor.constraint(equalToConstant: 44),
         ])
     }
 
@@ -353,12 +335,6 @@ final class CameraViewController: UIViewController {
         present(activityVC, animated: true)
     }
 
-    @objc private func talkTapped() {
-        let talkVC = TalkModeViewController(module: module)
-        talkVC.modalPresentationStyle = .fullScreen
-        present(talkVC, animated: true)
-    }
-
     @objc private func backTapped() {
         #if !targetEnvironment(simulator)
         cameraManager.stopSession()
@@ -375,7 +351,6 @@ final class CameraViewController: UIViewController {
         recordingDot.isHidden = false
         flipButton.isHidden = true
         backButton.isHidden = true
-        talkButton.isHidden = true
         statusLabel.text = ""
         correctionCard.isHidden = true
 
@@ -399,7 +374,6 @@ final class CameraViewController: UIViewController {
         recordingDot.layer.removeAllAnimations()
         flipButton.isHidden = false
         backButton.isHidden = false
-        talkButton.isHidden = false
         statusLabel.text = "Processing..."
 
         animateRecordButton(recording: false)
@@ -485,6 +459,23 @@ final class CameraViewController: UIViewController {
         UIView.animate(withDuration: 0.3) {
             self.correctionCard.alpha = 1
         }
+
+        playCorrectionVideo(response)
+    }
+
+    /// Wire four: the correction clip, played over the card that is already
+    /// populated behind it.
+    ///
+    /// The written correction is laid out first and deliberately, so whatever
+    /// happens to the video - missing, unplayable, skipped - the golfer is left
+    /// looking at the coaching rather than at nothing.
+    private func playCorrectionVideo(_ response: CorrectionResponse) {
+        guard
+            let urlString = response.correctionVideoUrl,
+            let url = URL(string: urlString)
+        else { return }
+
+        present(VideoPlayerViewController(url: url, onFinished: {}), animated: false)
     }
 
     private func showError(_ error: Error) {

@@ -281,6 +281,93 @@ final class APIClient {
         }.resume()
     }
 
+    /// Email the app link to somebody else. Goes to them, never to the founder.
+    func shareWithFriend(email: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        postAccepted(
+            path: "/share/invite",
+            body: [
+                "email": email,
+                "device_id": EntitlementManager.shared.deviceId,
+            ],
+            completion: completion
+        )
+    }
+
+    /// Send a free-form note to the founder's mailbox.
+    func messageFounder(message: String, email: String?, completion: @escaping (Result<Void, Error>) -> Void) {
+        var body: [String: Any] = [
+            "message": message,
+            "device_id": EntitlementManager.shared.deviceId,
+        ]
+        // Sent only when given. An empty string would fail validation, where
+        // omitting the key means "no reply address", which is allowed.
+        if let email, !email.trimmingCharacters(in: .whitespaces).isEmpty {
+            body["email"] = email
+        }
+        postAccepted(path: "/connect/founder", body: body, completion: completion)
+    }
+
+    /// Shared plumbing for the endpoints that answer 202 with nothing useful.
+    ///
+    /// The status code is passed through rather than flattened, because the
+    /// screen presenting this distinguishes a bad address from a rate limit
+    /// from a feature that is not switched on yet.
+    private func postAccepted(
+        path: String,
+        body: [String: Any],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: APIConfig.baseURL + path) else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        session.dataTask(with: request) { _, response, error in
+            if let urlError = error as? URLError,
+               [.notConnectedToInternet, .cannotConnectToHost, .timedOut].contains(urlError.code) {
+                completion(.failure(APIError.serverUnreachable))
+                return
+            }
+            if let error {
+                completion(.failure(error))
+                return
+            }
+            guard let http = response as? HTTPURLResponse else {
+                completion(.failure(APIError.invalidResponse))
+                return
+            }
+            if http.statusCode == 202 || http.statusCode == 200 {
+                completion(.success(()))
+            } else {
+                completion(.failure(APIError.requestFailed(statusCode: http.statusCode)))
+            }
+        }.resume()
+    }
+
+    func fetchInstructionalVideo(module: GolfModule, completion: @escaping (Result<InstructionalVideoResponse, Error>) -> Void) {
+        guard var components = URLComponents(string: APIConfig.baseURL + "/videos/instructional") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "module", value: module.uploadModuleParam),
+        ]
+
+        guard let url = components.url else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        session.dataTask(with: URLRequest(url: url)) { data, response, error in
+            self.handleDecodable(data: data, response: response, error: error, completion: completion)
+        }.resume()
+    }
+
     func checkEntitlement(deviceId: String, module: GolfModule, completion: @escaping (Result<EntitlementResponse, Error>) -> Void) {
         guard var components = URLComponents(string: APIConfig.baseURL + "/entitlement") else {
             completion(.failure(APIError.invalidURL))

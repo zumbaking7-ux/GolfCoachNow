@@ -113,7 +113,11 @@ final class FounderMessageViewController: UIViewController, MFMailComposeViewCon
 
         let mail = MFMailComposeViewController()
         mail.mailComposeDelegate = self
-        mail.setToRecipients(["jmt_mcgraw@yahoo.com"])
+        // Superseded by ContactSheetViewController, which sends through our own
+        // backend rather than the phone's mail app. Nothing presents this
+        // controller any more; the address is corrected here only so that a
+        // future reader cannot revive it and mail the wrong person.
+        mail.setToRecipients(["zumba.king7@gmail.com"])
         mail.setSubject("GolfCoachNow Feedback")
         present(mail, animated: true)
     }
