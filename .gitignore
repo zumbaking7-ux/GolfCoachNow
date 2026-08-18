@@ -40,3 +40,21 @@ uploads/
 *.mp4
 *.mov
 *.avi
+
+# Office lock files
+~$*
+
+# Xcode project backups
+*.pbxproj.bak
+
+# Internal working documents. This repository is public and is shared with the
+# previous contractor, so commercial terms and internal assessments do not
+# belong in it. These live with the contractor, not with the product.
+AUDIT.md
+requirements_register.md
+client_message_*.md
+client_reply_*.md
+handoff_request_*.md
+GolfCoachNow_*.docx
+GolfCoachNow_*.xlsx
+GolfCoachNow_*.pdf
