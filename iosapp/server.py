@@ -8,12 +8,19 @@ from typing import Optional
 from wedge import process_mobile_input as wedge_process, CORRECTIONS as WEDGE_CORRECTIONS
 from putt import process_mobile_input as putt_process, CORRECTIONS as PUTT_CORRECTIONS
 from chip import process_mobile_input as chip_process, CORRECTIONS as CHIP_CORRECTIONS
-from video_analyzer import analyze_video, VideoAnalysisError
+from video_analyzer import (
+    analyze_video,
+    AnalysisUnavailable,
+    NoSwingDetected,
+    VideoAnalysisError,
+)
 from talk import process_talk
+from video_library import instructional_url, correction_url
 
 try:
     from payments.routes import router as payments_router
     from payments.auth_routes import router as auth_router
+    from payments.contact_routes import router as contact_router
     from payments.db import get_session
     from payments.entitlement import check_entitlement, record_usage
     from payments.models import AnalyticsEvent, RepResult
@@ -23,6 +30,7 @@ try:
 except ImportError:
     payments_router = None
     auth_router = None
+    contact_router = None
     _has_payments = False
 
 app = FastAPI(
@@ -42,6 +50,7 @@ VALID_MODULES = frozenset(MODULE_ENGINES.keys())
 if payments_router is not None:
     app.include_router(payments_router)
     app.include_router(auth_router)
+    app.include_router(contact_router)
 
 ALLOWED_EXTENSIONS = {"mp4", "mov", "avi", "m4v", "webm"}
 MAX_FILE_SIZE = 16 * 1024 * 1024
@@ -69,6 +78,29 @@ class AnalyticsEventRequest(BaseModel):
 @app.get("/")
 def health():
     return {"status": "ok", "service": "GolfCoachNow API"}
+
+
+def _with_correction_video(module: str, result: dict) -> dict:
+    """Attach the correction clip to an engine result.
+
+    Done here rather than inside the engines so that wedge, putt and chip stay
+    pure scoring code with no idea that videos exist.
+    """
+    result["correction_video_url"] = correction_url(module, result.get("dominant_fault"))
+    return result
+
+
+@app.get("/videos/instructional")
+def get_instructional_video(module: str = Query("swing")):
+    """The clip that plays when someone taps an engine button.
+
+    A null url is a valid answer and means the asset is not published yet. The
+    apps are expected to go straight to the camera in that case rather than
+    stalling on a video that will never arrive.
+    """
+    if module not in VALID_MODULES:
+        raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
+    return {"module": module, "url": instructional_url(module)}
 
 
 @app.get("/entitlement")
@@ -122,6 +154,64 @@ def _save_result(device_id: str, module: str, result: dict):
         db.close()
 
 
+def _check_allowance(device_id: str, module: str):
+    """Gate on the daily limit without spending a rep.
+
+    Used by the upload path, where the recording might turn out to contain no
+    swing at all. Charging somebody for an attempt we could not read would
+    paywall them after three bad camera angles, having coached them zero times.
+    """
+    if not _has_payments:
+        return
+    if not device_id:
+        raise HTTPException(400, "device_id is required")
+    db = next(get_session())
+    try:
+        status = check_entitlement(db, device_id, module)
+        if not status.allowed:
+            raise HTTPException(
+                403,
+                {
+                    "error": "daily_limit_reached",
+                    "message": f"You have used all {status.daily_limit} free reps for {module} today. Subscribe for unlimited access.",
+                    "reps_used": status.reps_used,
+                    "daily_limit": status.daily_limit,
+                },
+            )
+    finally:
+        db.close()
+
+
+def _record_rep(device_id: str, module: str):
+    """Spend one rep. Called only once real coaching is going back."""
+    if not _has_payments or not device_id:
+        return
+    db = next(get_session())
+    try:
+        record_usage(db, device_id, module)
+    finally:
+        db.close()
+
+
+def _unreadable_clip_response(message: str) -> dict:
+    """The answer when there is nothing to coach.
+
+    Deliberately the same shape as a correction, because both mobile clients
+    decode this response into a type whose fields are not optional. Changing
+    the shape here would fail to decode on iOS rather than show the message.
+    `status` is what tells the apps this was not coaching, and is what they
+    should branch on when they present it differently.
+    """
+    return {
+        "rep": 0,
+        "dominant_fault": "",
+        "correction": message,
+        "normalized_scores": {},
+        "status": "no_swing_detected",
+        "correction_video_url": None,
+    }
+
+
 def _check_and_record(device_id: str, module: str):
     if not _has_payments:
         return
@@ -153,7 +243,9 @@ async def upload_video(
     if module not in VALID_MODULES:
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
 
-    _check_and_record(device_id, module)
+    # Checked, not spent. The rep is recorded further down, once we know there
+    # was actually a swing in the clip.
+    _check_allowance(device_id, module)
 
     if not file.filename:
         raise HTTPException(400, "No file provided")
@@ -174,8 +266,14 @@ async def upload_video(
         scores = analyze_video(tmp_path, module=module)
         engine = MODULE_ENGINES.get(module, wedge_process)
         result = engine(scores)
+        _record_rep(device_id, module)
         _save_result(device_id, module, result)
-        return result
+        return _with_correction_video(module, result)
+    except (NoSwingDetected, AnalysisUnavailable) as e:
+        # Not an error. We read the clip and there was nothing to coach, or we
+        # could not read it at all. Either way the golfer gets a plain answer
+        # and keeps the rep, rather than invented coaching.
+        return _unreadable_clip_response(str(e))
     except VideoAnalysisError as e:
         raise HTTPException(400, str(e))
     except Exception:
@@ -192,7 +290,7 @@ def run_wedge(swing: SwingData):
     _check_and_record(swing.device_id, "swing")
     result = wedge_process(swing.data)
     _save_result(swing.device_id, "swing", result)
-    return result
+    return _with_correction_video("swing", result)
 
 
 @app.post("/putt")
@@ -200,7 +298,7 @@ def run_putt(swing: SwingData):
     _check_and_record(swing.device_id, "putt")
     result = putt_process(swing.data)
     _save_result(swing.device_id, "putt", result)
-    return result
+    return _with_correction_video("putt", result)
 
 
 @app.post("/short-game")
@@ -208,7 +306,7 @@ def run_short_game(swing: SwingData):
     _check_and_record(swing.device_id, "short_game")
     result = chip_process(swing.data)
     _save_result(swing.device_id, "short_game", result)
-    return result
+    return _with_correction_video("short_game", result)
 
 
 @app.post("/talk")

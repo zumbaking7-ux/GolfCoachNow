@@ -60,20 +60,79 @@ class VideoAnalysisError(Exception):
     pass
 
 
+class NoSwingDetected(VideoAnalysisError):
+    """We looked at the clip and there is nothing here to coach.
+
+    This is a finding, not a failure. It carries a message written for the
+    person holding the phone, because that message is what they will read.
+
+    It exists because the alternative is worse than an error: without it the
+    pipeline falls through to metadata scoring and answers an empty recording
+    with confident, specific, invented coaching.
+    """
+
+
+class AnalysisUnavailable(VideoAnalysisError):
+    """We could not look at the clip at all.
+
+    Raised only under STRICT_ANALYSIS. Distinct from NoSwingDetected on
+    purpose: one means the golfer needs to record again, the other means the
+    server is missing something and no amount of re-recording will help.
+    """
+
+
+# Refuse to fall back to metadata scoring, which does not look at the video.
+# Off by default so the product keeps working while we confirm what is actually
+# installed in production; turn it on once the pose libraries are confirmed and
+# the system can no longer invent a correction under any circumstances.
+STRICT_ANALYSIS = os.environ.get("STRICT_ANALYSIS", "").strip().lower() in ("1", "true", "yes")
+
+# Smaller than any real recording. A one second clip from a phone is hundreds
+# of kilobytes; this only catches empty files and junk, and it works whether or
+# not ffprobe is installed.
+MIN_FILE_BYTES = 10_000
+
+# Shorter than this cannot contain a golf swing, let alone a scoreable one.
+MIN_CLIP_SECONDS = 0.8
+
+# Mean frame-to-frame difference, on a 0-255 grey scale, below which nothing in
+# the frame moved. Deliberately low: it should catch a still image or a covered
+# lens, and never a real swing filmed badly. Worth retuning against real
+# footage once we have some.
+MIN_MOTION = 1.0
+
+_FRAMING_ADVICE = "Stand back so your whole body is in frame, then record again."
+
+
 def analyze_video(file_path, module="swing"):
     if not os.path.exists(file_path):
         raise VideoAnalysisError("Video file not found")
+
+    if os.path.getsize(file_path) < MIN_FILE_BYTES:
+        # Covers an empty upload, a truncated one, and anything that is not a
+        # recording at all. None of those are the golfer's framing, so the
+        # message does not send them back to reposition the camera.
+        raise NoSwingDetected(
+            "That recording didn't come through properly. Please try recording again."
+        )
 
     if module == "swing":
         if _ensure_mp():
             try:
                 return _to_python_floats(_analyze_with_pose(file_path))
+            except NoSwingDetected:
+                # A real answer about the clip. Passing it down to a tier that
+                # cannot see the video would replace a true finding with a
+                # fabricated one.
+                raise
             except Exception:
                 pass
 
         if _ensure_cv():
             try:
                 return _to_python_floats(_analyze_with_motion(file_path))
+            except NoSwingDetected:
+                raise
             except Exception:
                 pass
 
@@ -91,7 +150,10 @@ def _to_python_floats(scores):
 def _analyze_with_pose(file_path):
     seq = _extract_pose_landmarks(file_path, max_frames=20)
     if len(seq) < 5:
-        raise VideoAnalysisError("Not enough pose detections")
+        # MediaPipe looked at every sampled frame and could not find a person
+        # in enough of them. That is the clearest "there is no swing here"
+        # signal the system has.
+        raise NoSwingDetected("We couldn't see anyone in that clip. " + _FRAMING_ADVICE)
     phases = _detect_phases(seq)
     scores = _score_pose_faults(seq, phases)
     result = {k: round(v, 3) for k, v in scores.items() if v > 0.05}
@@ -276,7 +338,7 @@ def _analyze_with_motion(file_path):
     cap.release()
 
     if len(frames_gray) < 5:
-        raise VideoAnalysisError("Not enough frames")
+        raise NoSwingDetected("That clip was too short to read. " + _FRAMING_ADVICE)
 
     h, w = frames_gray[0].shape
 
@@ -285,6 +347,12 @@ def _analyze_with_motion(file_path):
     for i in range(1, len(frames_gray)):
         diff = cv2.absdiff(frames_gray[i], frames_gray[i - 1])
         diffs.append(np.mean(diff))
+
+    # Nothing in the frame moved across the whole clip, so whatever was filmed,
+    # it was not a swing. Without this the flow analysis below happily scores a
+    # still image.
+    if diffs and max(diffs) < MIN_MOTION:
+        raise NoSwingDetected("Nothing moved in that clip. " + _FRAMING_ADVICE)
 
     # Compute optical flow for key transitions
     # Split frame into upper body (top 50%) and lower body (bottom 50%)
@@ -452,31 +520,74 @@ def _score_motion_faults(diffs, umx, umy, lmx, lmy, fps, total_frames):
 
 def _analyze_with_metadata(file_path, module="swing"):
     meta = _extract_metadata(file_path)
+
+    # Only worth checking when ffprobe actually told us something. When it did
+    # not, these fields are zeroes from the hash fallback and would reject
+    # every clip on a server without ffprobe installed.
+    if meta.get("probed"):
+        if meta.get("duration", 0) < MIN_CLIP_SECONDS:
+            raise NoSwingDetected(
+                "That clip was too short to read. Record a couple of seconds "
+                "and try again."
+            )
+        if not meta.get("width") or not meta.get("height"):
+            raise NoSwingDetected(
+                "That recording had no picture in it. " + _FRAMING_ADVICE
+            )
+
+    if STRICT_ANALYSIS:
+        raise AnalysisUnavailable(
+            "Swing analysis is not available on this server right now. "
+            "Nothing is wrong with your recording."
+        )
+
     return _generate_scores_from_metadata(meta, module)
 
 
 def _extract_metadata(file_path):
+    """Read what ffprobe can tell us, and be honest about whether it could.
+
+    The `probed` flag is the important part. "ffprobe says this is not a video"
+    and "ffprobe is not installed" produce almost identical empty numbers, and
+    only the first of those justifies telling somebody their recording failed.
+    """
     try:
         r = subprocess.run(
             ["ffprobe", "-v", "quiet", "-print_format", "json",
              "-show_format", "-show_streams", file_path],
             capture_output=True, text=True, timeout=30,
         )
-        if r.returncode != 0:
-            return _hash_metadata(file_path)
-        probe = json.loads(r.stdout)
-        fmt = probe.get("format", {})
-        vs = next((s for s in probe.get("streams", []) if s.get("codec_type") == "video"), None)
-        if not vs:
-            raise VideoAnalysisError("No video stream found")
-        return {
-            "duration": float(fmt.get("duration", 0)),
-            "width": int(vs.get("width", 0)),
-            "height": int(vs.get("height", 0)),
-            "file_size": int(fmt.get("size", os.path.getsize(file_path))),
-        }
-    except (FileNotFoundError, json.JSONDecodeError, subprocess.TimeoutExpired):
+    except FileNotFoundError:
+        # ffprobe is not on this machine. We know nothing about the file.
         return _hash_metadata(file_path)
+    except subprocess.TimeoutExpired:
+        return _hash_metadata(file_path)
+
+    if r.returncode != 0:
+        # ffprobe ran and could not decode it. That is a genuine answer about
+        # the file rather than a gap in our tooling.
+        raise NoSwingDetected(
+            "That file could not be read as a video. Try recording again."
+        )
+
+    try:
+        probe = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return _hash_metadata(file_path)
+
+    fmt = probe.get("format", {})
+    vs = next((s for s in probe.get("streams", []) if s.get("codec_type") == "video"), None)
+    if not vs:
+        raise NoSwingDetected(
+            "That file has no video in it. Try recording again."
+        )
+    return {
+        "duration": float(fmt.get("duration", 0)),
+        "width": int(vs.get("width", 0)),
+        "height": int(vs.get("height", 0)),
+        "file_size": int(fmt.get("size", os.path.getsize(file_path))),
+        "probed": True,
+    }
 
 
 def _hash_metadata(file_path):
@@ -488,7 +599,9 @@ def _hash_metadata(file_path):
                 break
             h.update(chunk)
     return {"duration": 0.0, "width": 0, "height": 0,
-            "file_size": os.path.getsize(file_path), "file_hash": h.hexdigest()}
+            "file_size": os.path.getsize(file_path), "file_hash": h.hexdigest(),
+            # Nothing here was measured from the video itself.
+            "probed": False}
 
 
 def _generate_scores_from_metadata(meta, module="swing"):

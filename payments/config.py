@@ -85,6 +85,28 @@ class Settings(BaseSettings):
     auth_rate_limit_requests: int = 5
     auth_rate_limit_window_seconds: int = 300
 
+    # --- Share and Connect ----------------------------------------------
+    # Where "connect with the founder" messages land. Configuration rather
+    # than a constant in three apps, because changing it should not mean
+    # shipping a release on iOS, Android and web.
+    founder_email: str = "zumba.king7@gmail.com"
+
+    # The link a golfer sends a friend. Empty is a legal state and means the
+    # invite is not open yet: /share/invite answers 503 and everything else
+    # keeps working, the same way an unset subscription price is handled.
+    # Nothing should be emailing people a link that does not exist yet.
+    app_share_url: str = ""
+
+    # Sending mail to an address someone typed is the most abusable thing this
+    # service does, so these are tighter still than the sign in limits.
+    share_rate_limit_requests: int = 3
+    share_rate_limit_window_seconds: int = 3600
+
+    @property
+    def sharing_enabled(self) -> bool:
+        """Whether there is a link worth sending anybody."""
+        return bool(self.app_share_url)
+
     @field_validator("email_provider")
     @classmethod
     def must_be_a_known_provider(cls, value: str) -> str:

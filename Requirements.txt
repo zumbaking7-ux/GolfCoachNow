@@ -2,6 +2,12 @@ fastapi
 python-multipart
 a2wsgi
 
+# The documented local setup is `uvicorn server:app`, which needs this.
+# Production does not use it - PythonAnywhere serves WSGI and the app is
+# wrapped with a2wsgi above - but without it the setup steps in the README
+# fail on a clean machine.
+uvicorn
+
 # Payments. Pinned so an install months from now matches the one these were
 # tested against. Test tools are in requirements-dev.txt.
 stripe==15.4.0

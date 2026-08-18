@@ -25,6 +25,18 @@ logger = get_logger("email")
 RESEND_ENDPOINT = "https://api.resend.com/emails"
 SEND_TIMEOUT_SECONDS = 10
 
+# Identify ourselves properly. This is not cosmetic.
+#
+# Resend sits behind Cloudflare, which refuses urllib's default
+# "Python-urllib/x.y" with a 403 and error code 1010 - a bot-signature block
+# that happens before the request reaches Resend at all. Every login code this
+# service tried to send was rejected that way, which surfaced only as a generic
+# send failure in the log while the sign in endpoint went on answering 202.
+#
+# Verified against the live account: the identical request succeeds with a
+# User-Agent set and fails without one.
+USER_AGENT = "GolfCoachNow/1.0 (+https://golfcoachnow.pythonanywhere.com)"
+
 SUBJECT = "Your Golf Coach Now sign in code"
 
 
@@ -60,6 +72,30 @@ def send_login_code(email: str, code: str) -> bool:
         return False
 
 
+def send_email(to: str, subject: str, text: str, reply_to: str = "") -> bool:
+    """Deliver one plain-text email. Returns whether it went out, never raises.
+
+    The general form of the function above, for mail that is not a login code:
+    the invite a golfer sends a friend, and the note they send the founder.
+
+    Same two providers and the same rule about failure. A provider being down
+    should mean one person tries again, not a 500 on a screen they are looking
+    at, so this reports the outcome rather than raising it.
+    """
+    if settings.email_provider == PROVIDER_CONSOLE:
+        logger.warning(
+            "EMAIL_PROVIDER is console, no email was sent %s",
+            fields(to=to, subject=subject),
+        )
+        return True
+
+    try:
+        return _post_to_resend(to=to, subject=subject, text=text, reply_to=reply_to)
+    except Exception:
+        logger.exception("email send failed %s", fields(to=to, subject=subject))
+        return False
+
+
 def _send_to_console(email: str, code: str) -> bool:
     """Local development only. Writes the code to the log and sends nothing.
 
@@ -76,14 +112,23 @@ def _send_to_console(email: str, code: str) -> bool:
 
 
 def _send_via_resend(email: str, code: str) -> bool:
-    payload = json.dumps(
-        {
-            "from": settings.email_from,
-            "to": [email],
-            "subject": SUBJECT,
-            "text": build_message(code),
-        }
-    ).encode()
+    return _post_to_resend(email, SUBJECT, build_message(code))
+
+
+def _post_to_resend(to: str, subject: str, text: str, reply_to: str = "") -> bool:
+    """The one place this service talks to Resend."""
+    body = {
+        "from": settings.email_from,
+        "to": [to],
+        "subject": subject,
+        "text": text,
+    }
+    # Lets the founder hit reply and reach the golfer, without the message
+    # appearing to come from an address we do not control.
+    if reply_to:
+        body["reply_to"] = reply_to
+
+    payload = json.dumps(body).encode()
 
     request = urllib.request.Request(
         RESEND_ENDPOINT,
@@ -92,22 +137,21 @@ def _send_via_resend(email: str, code: str) -> bool:
         headers={
             "Authorization": f"Bearer {settings.resend_api_key}",
             "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
         },
     )
 
     try:
         with urllib.request.urlopen(request, timeout=SEND_TIMEOUT_SECONDS) as response:
-            logger.info(
-                "login code sent %s", fields(email=email, status=response.status)
-            )
+            logger.info("email sent %s", fields(to=to, status=response.status))
             return True
     except urllib.error.HTTPError as error:
         # The body usually says which field the provider rejected, and that is
         # the difference between a five minute fix and an afternoon. It cannot
-        # contain the code, which is only ever in the payload we sent.
+        # contain a login code, which is only ever in the payload we sent.
         detail = error.read().decode(errors="replace")[:200]
         logger.error(
-            "login code rejected by provider %s",
-            fields(email=email, status=error.code, detail=detail),
+            "email rejected by provider %s",
+            fields(to=to, status=error.code, detail=detail),
         )
         return False

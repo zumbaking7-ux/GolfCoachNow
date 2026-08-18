@@ -52,6 +52,20 @@ holding them is never committed - `.gitignore` covers `.env`.
 | `RATE_LIMIT_ENABLED` | `true`. Set to `false` to turn limiting off without a deploy. |
 | `RATE_LIMIT_REQUESTS` | `30` per window, per client address. |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60`. |
+| `VIDEO_BASE_URL` | Origin the video assets are served from, no trailing slash. Unset means no videos are published; the API answers `null` and the apps skip to the camera. |
+| `STRICT_ANALYSIS` | `false` by default. Set to `true` once the pose libraries are confirmed installed, so a clip can never be scored from its metadata. See below. |
+| `FOUNDER_EMAIL` | Where "connect with the founder" messages land. |
+| `APP_SHARE_URL` | The link the Share button emails to a friend. **May be left empty**, which makes `/share/invite` answer 503 and sends nobody anything. |
+| `SHARE_RATE_LIMIT_REQUESTS` | `3` per window, counted per caller and separately per recipient. |
+| `SHARE_RATE_LIMIT_WINDOW_SECONDS` | `3600`. |
+| `EMAIL_PROVIDER` | **`resend` in production.** Defaults to `console`, which sends nothing. See below. |
+| `RESEND_API_KEY` | Required when `EMAIL_PROVIDER` is `resend`. |
+| `EMAIL_FROM` | From address on sign in emails. Defaults to Resend's shared onboarding domain. |
+| `LOGIN_CODE_LENGTH` | `6`. |
+| `LOGIN_CODE_TTL_MINUTES` | `10`. |
+| `LOGIN_CODE_MAX_ATTEMPTS` | `5`. |
+| `AUTH_RATE_LIMIT_REQUESTS` | `5` per window. Tighter than the general limit because this sends email. |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | `300`. |
 
 The rate limit defaults are deliberately loose. Mobile customers share carrier
 addresses, so a whole city can arrive from one, and tightening this blocks
@@ -81,6 +95,59 @@ If subscriptions appear unavailable in production, check this variable first.
 code.** Managed Payments is enabled on this account and rejects checkout for a
 product without one. That rejection happens live, on a real customer's card,
 and it is what broke checkout once already.
+
+### `STRICT_ANALYSIS` decides whether a correction can be invented
+
+The analyser has three tiers. The first two look at the video: MediaPipe pose
+tracking, then OpenCV motion. The third does not. It reads the file's size and
+duration, seeds a random number generator with them, and picks faults.
+
+That third tier is why an empty file used to come back with confident coaching.
+Clips that are clearly not recordings are now rejected outright regardless of
+this setting, and a tier that genuinely looked and found nobody in frame now
+says so instead of falling through. But a plausible-looking video on a server
+without the pose libraries still gets metadata scoring while this is `false`.
+
+    STRICT_ANALYSIS=true
+
+turns that last path off. A clip that cannot be really analysed then comes back
+as `no_swing_detected` with an explanation, and nothing is ever fabricated.
+
+**Leave it `false` until `mediapipe`, `opencv-python` and `numpy` are confirmed
+installed**, because switching it on without them means every upload is
+refused. `python3 deploy_check.py` on the server answers that in one command.
+
+### Sign in sends no email until `EMAIL_PROVIDER` is set
+
+`EMAIL_PROVIDER` defaults to `console`, which writes the login code to the
+application log and sends nothing. That default is right for local work and
+wrong everywhere else, and it is the second setting on this page whose failure
+mode is silence rather than a crash.
+
+A deployment that never sets it starts cleanly, serves every endpoint, accepts
+an email address at the sign in screen, and returns the same `202` it would on
+success. Nobody is signed in and nothing in the logs looks like an error. The
+code is sitting in the log where only an operator can see it.
+
+Production needs both:
+
+    EMAIL_PROVIDER=resend
+    RESEND_API_KEY=re_...
+
+The key is validated at startup, so setting the provider without the key stops
+the app rather than stranding someone on a login screen.
+
+One request settles whether it is working, and it has to be a real address you
+can open:
+
+    curl -X POST https://golfcoachnow.pythonanywhere.com/auth/request-code \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"you@example.com"}'
+
+A `202` proves only that the request was accepted. **The endpoint answers the
+same way whether or not an email was ever sent**, deliberately, so that it
+cannot be used to test which addresses are registered. The inbox is the only
+confirmation.
 
 ## Steps
 
