@@ -33,13 +33,16 @@ def client():
 # --- Instructional clips -------------------------------------------------
 
 
-def test_each_module_resolves_to_its_own_instructional_clip(hosted):
-    assert video_library.instructional_url("swing") == f"{CDN}/instructional/swing.mp4"
-    assert video_library.instructional_url("putt") == f"{CDN}/instructional/putt.mp4"
-    assert (
-        video_library.instructional_url("short_game")
-        == f"{CDN}/instructional/short_game.mp4"
-    )
+def test_every_module_resolves_to_the_shared_instructional_clip(hosted):
+    """Version 1 ships one instructional clip for all three modes.
+
+    The mapping is still per-module, so pointing swing at its own clip later
+    changes this file and nothing else.
+    """
+    shared = f"{CDN}/instructional/all_modes.mp4"
+    assert video_library.instructional_url("swing") == shared
+    assert video_library.instructional_url("putt") == shared
+    assert video_library.instructional_url("short_game") == shared
 
 
 def test_no_base_url_means_no_video_rather_than_a_broken_one(monkeypatch):
@@ -111,7 +114,7 @@ def test_endpoint_returns_the_clip_for_a_module(client, hosted):
     assert response.status_code == 200
     assert response.json() == {
         "module": "putt",
-        "url": f"{CDN}/instructional/putt.mp4",
+        "url": f"{CDN}/instructional/all_modes.mp4",
     }
 
 

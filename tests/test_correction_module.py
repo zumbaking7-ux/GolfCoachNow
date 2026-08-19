@@ -35,6 +35,29 @@ def hosted(monkeypatch):
 
 
 @pytest.fixture
+def readable_clip(monkeypatch):
+    """Make the analyser see an ordinary recording.
+
+    These tests are about what happens once a rep analyses successfully, not
+    about video decoding. Without this they depend on whether ffprobe happens
+    to be installed on the machine running them: with it, the random bytes
+    below are correctly rejected as not-a-video; without it they sail through
+    and get scored. That is a test that silently changes meaning depending on
+    the environment, so the decoding step is pinned here instead.
+    """
+    monkeypatch.setattr(
+        video_analyzer,
+        "_extract_metadata",
+        lambda _: {
+            "duration": 12.0,
+            "width": 1080,
+            "height": 1920,
+            "file_size": 4_000_000,
+            "probed": True,
+        },
+    )
+
+@pytest.fixture
 def client():
     return TestClient(server.app)
 
@@ -84,7 +107,7 @@ def test_the_clip_does_not_change_with_the_fault(hosted):
 # --- A successful rep ------------------------------------------------------
 
 
-def test_a_successful_rep_returns_a_clip_and_the_written_correction(client, hosted):
+def test_a_successful_rep_returns_a_clip_and_the_written_correction(client, hosted, readable_clip):
     body = upload(client, PLAUSIBLE_CLIP, device="rep_success_device").json()
 
     assert body["status"] == "ok"
@@ -93,7 +116,7 @@ def test_a_successful_rep_returns_a_clip_and_the_written_correction(client, host
     assert body["correction_video_url"] == f"{CDN}/correction/swing_correction.mp4"
 
 
-def test_a_successful_rep_counts_towards_the_paywall(client, hosted):
+def test_a_successful_rep_counts_towards_the_paywall(client, hosted, readable_clip):
     """The other half of the rule: reps that produced coaching do count.
 
     Without this, the fix that stopped failed reps being charged could quietly
@@ -139,7 +162,7 @@ def test_a_failed_rep_does_not_count_towards_the_paywall(client, hosted):
 # --- Where the two meet ----------------------------------------------------
 
 
-def test_failed_reps_between_good_ones_do_not_advance_the_paywall(client, hosted):
+def test_failed_reps_between_good_ones_do_not_advance_the_paywall(client, hosted, readable_clip):
     """The realistic case: somebody films badly, adjusts, films again.
 
     Three good reps should reach the limit no matter how many unreadable

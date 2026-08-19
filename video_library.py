@@ -28,11 +28,17 @@ import os
 # machine that has no assets rather than a reason to raise.
 BASE_URL = os.environ.get("VIDEO_BASE_URL", "").rstrip("/")
 
-# One instructional clip per module. These are the three videos already filmed.
+# The instructional clip that plays before the camera opens.
+#
+# Version 1 ships one clip shared by all three modes, per the client. The
+# mapping stays per-module anyway so that giving swing its own clip later is a
+# one-line change here, with nothing else in the pipeline or the apps touched.
+_SHARED_INSTRUCTIONAL = "instructional/all_modes.mp4"
+
 INSTRUCTIONAL = {
-    "swing": "instructional/swing.mp4",
-    "putt": "instructional/putt.mp4",
-    "short_game": "instructional/short_game.mp4",
+    "swing": _SHARED_INSTRUCTIONAL,
+    "putt": _SHARED_INSTRUCTIONAL,
+    "short_game": _SHARED_INSTRUCTIONAL,
 }
 
 # The correction clip for each mode. This is the whole of Version 1.

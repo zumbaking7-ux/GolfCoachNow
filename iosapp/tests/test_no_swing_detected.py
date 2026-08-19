@@ -24,6 +24,29 @@ DEVICE = "no_swing_test_device"
 
 
 @pytest.fixture
+def readable_clip(monkeypatch):
+    """Make the analyser see an ordinary recording.
+
+    These tests are about what happens once a rep analyses successfully, not
+    about video decoding. Without this they depend on whether ffprobe happens
+    to be installed on the machine running them: with it, the random bytes
+    below are correctly rejected as not-a-video; without it they sail through
+    and get scored. That is a test that silently changes meaning depending on
+    the environment, so the decoding step is pinned here instead.
+    """
+    monkeypatch.setattr(
+        video_analyzer,
+        "_extract_metadata",
+        lambda _: {
+            "duration": 12.0,
+            "width": 1080,
+            "height": 1920,
+            "file_size": 4_000_000,
+            "probed": True,
+        },
+    )
+
+@pytest.fixture
 def client():
     return TestClient(server.app)
 
@@ -120,7 +143,7 @@ def test_the_shape_stays_decodable_by_the_existing_apps(client):
 # --- Strict mode ----------------------------------------------------------
 
 
-def test_strict_mode_refuses_to_score_from_metadata(monkeypatch, tmp_path):
+def test_strict_mode_refuses_to_score_from_metadata(monkeypatch, tmp_path, readable_clip):
     """With STRICT_ANALYSIS on, nothing may be invented under any circumstance.
 
     This is the switch to throw once the pose libraries are confirmed present
@@ -135,7 +158,7 @@ def test_strict_mode_refuses_to_score_from_metadata(monkeypatch, tmp_path):
         video_analyzer.analyze_video(str(clip), module="swing")
 
 
-def test_metadata_scoring_still_works_when_not_strict(tmp_path):
+def test_metadata_scoring_still_works_when_not_strict(tmp_path, readable_clip):
     """Default behaviour is unchanged for anything that looks like a recording.
 
     Turning the fallback off is a deliberate decision, not a side effect of
