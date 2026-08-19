@@ -668,7 +668,31 @@ async function submitContact() {
 }
 function shareCorrection() {
   const text = `GolfCoachNow — ${MODULE_TITLES[currentModule]} Analysis\n\nFault: ${lastCorrection.fault}\nCorrection: ${lastCorrection.text}\n\nTry GolfCoachNow — AI-powered golf coaching`;
-  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied!'); }
+  shareText(text);
+}
+
+// navigator.share returns a promise, and on desktop it usually rejects: the
+// API exists but there is no share target. The previous code ignored that
+// rejection, so the button did nothing at all and said nothing about it.
+async function shareText(text) {
+  if (navigator.share) {
+    try {
+      await navigator.share({text});
+      return;
+    } catch (err) {
+      // Closing the share sheet is a decision, not a failure. Falling through
+      // to the clipboard would copy something they chose not to send.
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Correction copied to your clipboard.');
+  } catch (err) {
+    // Last resort: put it on screen to be copied by hand, rather than a
+    // button that silently does nothing.
+    window.prompt('Copy your correction:', text);
+  }
 }
 
 // ── Camera ──

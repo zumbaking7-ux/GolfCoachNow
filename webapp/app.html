@@ -119,7 +119,11 @@ animation:status-glow 1.5s ease-in-out infinite alternate}
 100%{box-shadow:0 0 40px rgba(173,202,52,0.5),0 0 80px rgba(173,202,52,0.2);border-color:rgba(173,202,52,0.9)}
 }
 .camera-screen .controls{position:absolute;bottom:32px;left:0;right:0;display:flex;
-justify-content:center;pointer-events:auto;padding-bottom:max(env(safe-area-inset-bottom),0px)}
+justify-content:center;align-items:center;gap:24px;pointer-events:auto;padding-bottom:max(env(safe-area-inset-bottom),0px)}
+.upload-file-btn{width:48px;height:48px;border-radius:50%;border:2px solid var(--green-border);
+background:rgba(14,14,14,0.85);display:flex;align-items:center;justify-content:center;
+cursor:pointer;font-size:20px;box-shadow:0 0 12px var(--green-glow);transition:transform .15s}
+.upload-file-btn:active{transform:scale(.9)}
 .rec-btn{width:72px;height:72px;border-radius:50%;border:3px solid var(--green);
 background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
 box-shadow:0 0 16px var(--green-glow);transition:all .2s}
@@ -137,6 +141,29 @@ box-shadow:0 4px 16px var(--green-glow);pointer-events:auto}
 border:1px solid var(--green-border);background:var(--card);cursor:pointer;color:var(--green);
 font-size:13px;font-weight:700}
 .share-btn img{width:16px;height:16px}
+
+/* ── Account Row ── */
+.account-row{display:flex;justify-content:flex-end;align-items:center;padding:6px 12px 0;gap:8px}
+.account-row #account-info{flex:1;font-size:11px;color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-btn{background:none;border:1px solid var(--green-border);border-radius:8px;color:var(--green);
+font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer}
+
+/* ── Login Screen ── */
+.login-screen{background:var(--bg)}
+.login-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:24px;padding-top:48px}
+.login-icon{width:64px;height:64px;border-radius:14px;object-fit:cover;margin-bottom:16px}
+.login-content h2{font-size:26px;font-weight:700;color:var(--white);margin-bottom:8px}
+.login-content p{font-size:14px;color:var(--muted);text-align:center;margin-bottom:32px;line-height:1.5}
+.login-input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--green-border);
+background:var(--card);color:var(--white);font-size:16px;outline:none;margin-bottom:16px}
+.login-input:focus{border-color:var(--green);box-shadow:0 0 12px var(--green-glow)}
+.login-btn{width:100%;padding:14px;border-radius:10px;border:1px solid #618c1f;
+background:linear-gradient(to bottom,#8fc238,#6b9e24);color:#000;font-size:15px;
+font-weight:800;cursor:pointer;letter-spacing:0.02em;text-transform:uppercase}
+.login-btn:disabled{opacity:0.4;cursor:default}
+.login-link{background:none;border:none;color:var(--green);font-size:14px;cursor:pointer;margin-top:16px;
+font-weight:600}
+.login-error{color:var(--red);font-size:13px;text-align:center;margin-top:16px;min-height:20px}
 
 /* ── Talk Mode ── */
 .talk-screen{align-items:center}
@@ -197,6 +224,10 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 <!-- ════════ HOME SCREEN ════════ -->
 <div id="home" class="screen active">
 <div class="scrollable">
+  <div class="account-row">
+    <div id="account-info"></div>
+    <button id="account-btn" class="account-btn" onclick="handleAccountBtn()">Sign In</button>
+  </div>
   <img class="banner" src="/static/img/banner.png" alt="GolfCoachNow">
 
   <div class="greeting-wrap">
@@ -205,7 +236,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="inner">
         <div class="bar"></div>
         <div>
-          <h2 id="greeting-text">Good morning,<br><span>Golfer</span></h2>
+          <h2 id="greeting-text">Hi <span>there</span>.</h2>
           <p>What would you like<br>to learn today?</p>
         </div>
       </div>
@@ -213,19 +244,19 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
   </div>
 
   <div class="skills-row">
-    <div class="skill-card" onclick="openCamera('swing')">
+    <div class="skill-card" onclick="startModule('swing')">
       <img src="/static/img/ic_swing.png" alt="Swing">
       <div class="name">SWING</div>
       <div class="desc">Analyze your swing. Get instant feedback.</div>
       <div class="cta-btn">START SWING →</div>
     </div>
-    <div class="skill-card" onclick="openCamera('putt')">
+    <div class="skill-card" onclick="startModule('putt')">
       <img src="/static/img/ic_putt.png" alt="Putt">
       <div class="name">PUTT</div>
       <div class="desc">Analyze your putting. Improve your stroke.</div>
       <div class="cta-btn">START PUTT →</div>
     </div>
-    <div class="skill-card" onclick="openCamera('short_game')">
+    <div class="skill-card" onclick="startModule('short_game')">
       <img src="/static/img/ic_short_game.png" alt="Short Game">
       <div class="name">SHORT GAME</div>
       <div class="desc">Chipping, pitching &amp; bunker play.</div>
@@ -233,58 +264,23 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
     </div>
   </div>
 
-  <div class="talk-row">
-    <div class="talk-card" onclick="openTalkSelect()">
-      <img class="mic" src="/static/img/ic_talk_mode.png" alt="Talk">
-      <div class="info">
-        <h3>TALK MODE</h3>
-        <p>Talk to your AI coach.<br>Get instant answers.</p>
-      </div>
-      <img class="pulse" src="/static/img/ic_pulse.png" alt="">
-      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
-    </div>
-  </div>
-
   <div class="action-row safe-bottom">
-    <div class="action-card" onclick="shareApp()">
-      <img class="icon" src="/static/img/ic_share.png" alt="Share">
-      <div class="info">
-        <h4>SHARE</h4>
-        <p>Golf Coach Now</p>
-      </div>
-      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
-    </div>
-    <div class="action-card" onclick="connectFounder()">
+    <div class="action-card" onclick="openFounderModal()">
       <img class="icon" src="/static/img/ic_connect.png" alt="Connect">
       <div class="info">
         <h4>CONNECT</h4>
-        <p>Share your ideas with the founder</p>
+        <p>The founder welcomes your thoughts</p>
       </div>
       <img class="arrow" src="/static/img/ic_arrow.png" alt="">
     </div>
-  </div>
-</div>
-</div>
-
-<!-- ════════ MODULE SELECT (for Talk Mode) ════════ -->
-<div id="talk-select" class="screen">
-<div class="topbar">
-  <button class="back" onclick="goHome()">←</button>
-  <div class="title">TALK MODE</div>
-  <div style="width:40px"></div>
-</div>
-<div class="module-select">
-  <div class="module-btn" onclick="openTalk('swing')">
-    <img src="/static/img/ic_swing.png" alt="Swing">
-    <div class="info"><h3>Swing</h3><p>Full swing coaching</p></div>
-  </div>
-  <div class="module-btn" onclick="openTalk('putt')">
-    <img src="/static/img/ic_putt.png" alt="Putt">
-    <div class="info"><h3>Putt</h3><p>Putting stroke coaching</p></div>
-  </div>
-  <div class="module-btn" onclick="openTalk('short_game')">
-    <img src="/static/img/ic_short_game.png" alt="Short Game">
-    <div class="info"><h3>Short Game</h3><p>Chip &amp; pitch coaching</p></div>
+    <div class="action-card" onclick="openShareModal()">
+      <img class="icon" src="/static/img/ic_share.png" alt="Share">
+      <div class="info">
+        <h4>SHARE</h4>
+        <p>Send the app to a friend</p>
+      </div>
+      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
+    </div>
   </div>
 </div>
 </div>
@@ -313,45 +309,14 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       </div>
     </div>
     <div class="controls safe-bottom">
+      <label class="upload-file-btn" title="Upload a video file">
+        <input type="file" accept="video/*" id="file-upload" onchange="handleFileUpload(event)" style="display:none">
+        📁
+      </label>
       <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">
         <div class="dot"></div>
       </button>
     </div>
-  </div>
-</div>
-</div>
-
-<!-- ════════ TALK MODE SCREEN ════════ -->
-<div id="talk" class="screen talk-screen">
-<div class="topbar">
-  <button class="back" onclick="closeTalk()">←</button>
-  <div style="flex:1"></div>
-  <div style="display:flex;align-items:center;gap:6px">
-    <img src="/static/img/ic_talk_mode.png" style="width:24px;height:24px;object-fit:contain" alt="">
-    <span class="title" style="flex:none">TALK MODE</span>
-  </div>
-  <div style="flex:1"></div>
-  <div class="badge" id="talk-module-badge">Swing</div>
-</div>
-<div class="scrollable" style="display:flex;flex-direction:column;align-items:center">
-  <img class="pulse-icon" src="/static/img/ic_pulse.png" alt="">
-  <div class="status-text" id="talk-status">Tap the mic and describe your swing</div>
-  <div class="transcript" id="talk-transcript" style="display:none"></div>
-  <div id="talk-correction-wrap" style="display:none;width:100%;padding:0 0 24px">
-    <div class="talk-correction">
-      <div class="fault" id="talk-fault" style="font-size:18px;font-weight:700;color:var(--green);margin-bottom:8px"></div>
-      <div id="talk-correction-text" style="font-size:15px;line-height:1.4"></div>
-      <div class="share-row" style="display:flex;justify-content:flex-end;margin-top:10px">
-        <button class="share-btn" onclick="shareTalkCorrection()">
-          <img src="/static/img/ic_share.png" alt="">Share
-        </button>
-      </div>
-    </div>
-  </div>
-  <div class="mic-wrap" id="mic-wrap">
-    <button class="talk-mic" id="talk-mic-btn" onclick="toggleTalkMic()">
-      <img src="/static/img/ic_talk_mode.png" alt="Mic">
-    </button>
   </div>
 </div>
 </div>
@@ -368,7 +333,6 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
   <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>Unlimited swing analysis</span></div>
   <div class="feature-row"><img src="/static/img/ic_putt.png" alt=""><span>Unlimited putting analysis</span></div>
   <div class="feature-row"><img src="/static/img/ic_short_game.png" alt=""><span>Unlimited short game analysis</span></div>
-  <div class="feature-row"><img src="/static/img/ic_talk_mode.png" alt=""><span>Talk Mode — voice coaching</span></div>
   <div class="feature-row"><img src="/static/img/ic_share.png" alt=""><span>Share corrections</span></div>
 </div>
 <div class="price">$14.99</div>
@@ -379,7 +343,76 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 <button class="restore-btn" onclick="restorePurchase()">Already subscribed? Restore</button>
 </div>
 
+<!-- ════════ LOGIN SCREEN ════════ -->
+<div id="login" class="screen login-screen">
+<div class="topbar">
+  <button class="back" onclick="goHome()">←</button>
+  <div class="title">SIGN IN</div>
+  <div style="width:40px"></div>
+</div>
+<div class="login-content">
+  <img class="login-icon" src="/static/img/ic_swing.png" alt="GolfCoachNow">
+  <h2 id="login-title">Sign In</h2>
+  <p id="login-subtitle">Enter your email to receive a sign-in code</p>
+
+  <div id="login-email-step">
+    <input type="email" id="login-email" class="login-input" placeholder="Email address" autocomplete="email">
+    <button class="login-btn" id="login-send-btn" onclick="loginSendCode()">Send Code</button>
+  </div>
+
+  <div id="login-code-step" style="display:none">
+    <input type="text" id="login-code" class="login-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+    <input type="text" id="login-name" class="login-input" placeholder="Your first name" maxlength="80" autocomplete="given-name">
+    <button class="login-btn" id="login-verify-btn" onclick="loginVerifyCode()">Verify</button>
+    <button class="login-link" onclick="loginBackToEmail()">Use different email</button>
+  </div>
+
+  <div id="login-error" class="login-error"></div>
+</div>
+</div>
+
 </div><!-- /phone-frame -->
+
+<!-- ════════ CONTACT MODAL (Share / Connect) ════════ -->
+<div id="contact-modal" style="display:none;position:fixed;inset:0;z-index:9998;
+     background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:340px;background:var(--card);border:1px solid var(--green-border);
+       border-radius:14px;padding:20px">
+    <h3 id="contact-title" style="font-size:18px;font-weight:800;margin-bottom:6px"></h3>
+    <p id="contact-blurb" style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px"></p>
+
+    <textarea id="contact-message" rows="4" placeholder="Your message"
+      style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid #2a2a2a;
+      background:#0a0a0a;color:#fff;font-size:14px;font-family:inherit;resize:vertical;margin-bottom:10px"></textarea>
+
+    <input id="contact-email" type="email" autocomplete="email"
+      style="width:100%;padding:12px;border-radius:8px;border:1px solid #2a2a2a;
+      background:#0a0a0a;color:#fff;font-size:15px;margin-bottom:10px">
+
+    <div id="contact-status" style="display:none;font-size:13px;line-height:1.5;margin-bottom:10px"></div>
+
+    <button id="contact-send" onclick="submitContact()"
+      style="width:100%;padding:13px;border-radius:10px;border:1px solid #618c1f;
+      background:linear-gradient(to bottom,#8fc238,#6b9e24);color:#000;font-size:15px;
+      font-weight:800;cursor:pointer;letter-spacing:.03em">SEND</button>
+
+    <button id="contact-close" onclick="closeContactModal()"
+      style="width:100%;margin-top:8px;padding:10px;border:0;background:none;
+      color:var(--muted);font-size:14px;cursor:pointer">Cancel</button>
+  </div>
+</div>
+
+<!-- ════════ VIDEO OVERLAY ════════ -->
+<div id="video-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#000;
+     align-items:center;justify-content:center">
+  <video id="video-player" playsinline style="width:100%;height:100%;object-fit:contain"></video>
+  <button id="video-tap" style="display:none;position:absolute;padding:14px 28px;border-radius:24px;
+          border:1px solid var(--green);background:rgba(0,0,0,.6);color:#fff;font-size:15px;
+          font-weight:700;cursor:pointer">TAP TO PLAY</button>
+  <button id="video-skip" style="position:absolute;right:20px;bottom:20px;padding:8px 16px;
+          border-radius:16px;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:13px;
+          font-weight:600;letter-spacing:.05em;cursor:pointer">SKIP</button>
+</div>
 
 <script>
 const API = '';
@@ -391,9 +424,10 @@ let repCount = 0;
 let mediaStream = null;
 let mediaRecorder = null;
 let recordedChunks = [];
-let recognition = null;
-let ttsUtterance = null;
 let lastCorrection = {};
+let authToken = localStorage.getItem('gcn_auth_token');
+let authEmail = localStorage.getItem('gcn_auth_email');
+let authName  = localStorage.getItem('gcn_auth_name');
 
 // ── Navigation ──
 function showScreen(id) {
@@ -403,28 +437,329 @@ function showScreen(id) {
 function goHome() { stopCameraStream(); showScreen('home'); }
 
 // ── Greeting ──
-(function() {
-  const h = new Date().getHours();
-  const g = h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
-  document.getElementById('greeting-text').innerHTML = g + '<br><span>Golfer</span>';
-})();
+function updateGreeting() {
+  // The name comes from the account, never from the email address. Deriving it
+  // from the address greeted waleflutter@gmail.com as "waleflutter", which is
+  // worse than not personalising at all.
+  const name = (authName || '').trim() || 'there';
+  const safe = name.replace(/[&<>"]/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]
+  ));
+  document.getElementById('greeting-text').innerHTML = 'Hi <span>' + safe + '</span>.';
+}
+updateGreeting();
+
+// ── Account ──
+function updateAccountUI() {
+  const info = document.getElementById('account-info');
+  const btn = document.getElementById('account-btn');
+  if (authToken && authEmail) {
+    info.textContent = authEmail;
+    btn.textContent = 'Sign Out';
+  } else {
+    info.textContent = '';
+    btn.textContent = 'Sign In';
+  }
+  updateGreeting();
+}
+function handleAccountBtn() {
+  if (authToken) {
+    fetch(API + '/auth/sign-out', {method:'POST', headers:{'Authorization':'Bearer '+authToken}}).catch(()=>{});
+    authToken = null; authEmail = null; authName = null;
+    localStorage.removeItem('gcn_auth_token');
+    localStorage.removeItem('gcn_auth_email');
+    localStorage.removeItem('gcn_auth_name');
+    updateGreeting();
+    updateAccountUI();
+  } else {
+    document.getElementById('login-email-step').style.display = '';
+    document.getElementById('login-code-step').style.display = 'none';
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-code').value = '';
+    document.getElementById('login-title').textContent = 'Sign In';
+    document.getElementById('login-subtitle').textContent = 'Enter your email to receive a sign-in code';
+    showScreen('login');
+  }
+}
+async function loginSendCode() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email.includes('@')) { document.getElementById('login-error').textContent = 'Enter a valid email'; return; }
+  const btn = document.getElementById('login-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  document.getElementById('login-error').textContent = '';
+  try {
+    const res = await fetch(API + '/auth/request-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email})
+    });
+    if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
+    if (!res.ok) throw new Error('Failed to send code');
+    document.getElementById('login-email-step').style.display = 'none';
+    document.getElementById('login-code-step').style.display = '';
+    const known = localStorage.getItem('gcn_name_for_' + email.toLowerCase());
+    const nameInput = document.getElementById('login-name');
+    nameInput.value = known || '';
+    nameInput.style.display = known ? 'none' : '';
+    document.getElementById('login-title').textContent = 'Enter Code';
+    document.getElementById('login-subtitle').textContent = 'We sent a 6-digit code to ' + email;
+  } catch(e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Send Code';
+}
+async function loginVerifyCode() {
+  const email = document.getElementById('login-email').value.trim();
+  const code = document.getElementById('login-code').value.trim();
+  const name = document.getElementById('login-name').value.trim();
+  if (code.length !== 6) { document.getElementById('login-error').textContent = 'Enter the 6-digit code'; return; }
+  const btn = document.getElementById('login-verify-btn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  document.getElementById('login-error').textContent = '';
+  try {
+    const res = await fetch(API + '/auth/verify-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, code, device_id: deviceId, name})
+    });
+    if (res.status === 401) throw new Error('Invalid or expired code. Try again.');
+    if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
+    if (!res.ok) throw new Error('Verification failed');
+    const data = await res.json();
+    authToken = data.token; authEmail = email; authName = data.name || null;
+    localStorage.setItem('gcn_auth_token', authToken);
+    localStorage.setItem('gcn_auth_email', authEmail);
+    if (authName) {
+      localStorage.setItem('gcn_auth_name', authName);
+      // Kept past sign out, keyed by address, so a returning golfer is not
+      // asked their name again. Someone else signing in on the same device
+      // types a different address and gets a fresh field, so nothing of
+      // theirs is shown to anyone.
+      localStorage.setItem('gcn_name_for_' + email.toLowerCase(), authName);
+    } else {
+      localStorage.removeItem('gcn_auth_name');
+    }
+    updateGreeting();
+    updateAccountUI();
+    goHome();
+  } catch(e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Verify';
+}
+function loginBackToEmail() {
+  document.getElementById('login-email-step').style.display = '';
+  document.getElementById('login-code-step').style.display = 'none';
+  document.getElementById('login-code').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-title').textContent = 'Sign In';
+  document.getElementById('login-subtitle').textContent = 'Enter your email to receive a sign-in code';
+}
+updateAccountUI();
 
 // ── Share ──
-function shareApp() {
-  const text = 'Check out GolfCoachNow — AI-powered golf coaching for your swing, putt, and short game.';
-  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied to clipboard!'); }
+// ── Share and Connect ──
+// Both used to hand off to the browser or the phone's mail app, which left the
+// person to address and send it themselves. Now the backend sends it, so the
+// invite reaches the friend and the note reaches the founder either way.
+let contactMode = null;
+
+function openContactModal(mode) {
+  contactMode = mode;
+  const isShare = mode === 'share';
+
+  document.getElementById('contact-title').textContent =
+    isShare ? 'Share with a friend' : 'Connect with the founder';
+  document.getElementById('contact-blurb').textContent =
+    isShare ? "We'll email them a link to download Golf Coach Now."
+            : 'The founder welcomes your thoughts.';
+
+  const message = document.getElementById('contact-message');
+  message.style.display = isShare ? 'none' : '';
+  message.value = '';
+
+  const email = document.getElementById('contact-email');
+  email.style.display = '';
+  email.placeholder = isShare ? "Their email address" : 'Your email (optional, for a reply)';
+  email.value = '';
+
+  const status = document.getElementById('contact-status');
+  status.style.display = 'none';
+  status.textContent = '';
+
+  const send = document.getElementById('contact-send');
+  send.style.display = '';
+  send.disabled = false;
+  send.textContent = 'SEND';
+  document.getElementById('contact-close').textContent = 'Cancel';
+
+  document.getElementById('contact-modal').style.display = 'flex';
 }
-function connectFounder() { window.location.href = 'mailto:jmt_mcgraw@yahoo.com?subject=GolfCoachNow%20Feedback'; }
+
+function openShareModal() { openContactModal('share'); }
+function openFounderModal() { openContactModal('founder'); }
+function closeContactModal() { document.getElementById('contact-modal').style.display = 'none'; }
+
+function contactStatus(text, colour) {
+  const status = document.getElementById('contact-status');
+  status.textContent = text;
+  status.style.color = colour;
+  status.style.display = '';
+}
+
+// The server separates these cases deliberately. Collapsing them into one
+// message would leave somebody retyping a perfectly good address against a
+// limit that has nothing to do with it.
+function explainContactError(status) {
+  if (status === 422) return "That doesn't look like a valid email address.";
+  if (status === 429) return "That's been sent a few times already. Try again a little later.";
+  if (status === 503) return "Sharing isn't switched on yet. Please try again soon.";
+  return "Couldn't send that. Check your connection and try again.";
+}
+
+async function submitContact() {
+  const isShare = contactMode === 'share';
+  const email = document.getElementById('contact-email').value.trim();
+  const message = document.getElementById('contact-message').value.trim();
+
+  // Not full validation, which the server does. This only avoids spending a
+  // round trip on something obviously incomplete.
+  if (isShare && !email.includes('@')) {
+    return contactStatus("Enter your friend's email address.", '#ff6b6b');
+  }
+  if (!isShare && !message) {
+    return contactStatus('Write a message first.', '#ff6b6b');
+  }
+
+  const send = document.getElementById('contact-send');
+  send.disabled = true;
+  send.textContent = 'SENDING…';
+  document.getElementById('contact-status').style.display = 'none';
+
+  const path = isShare ? '/share/invite' : '/connect/founder';
+  const body = isShare
+    ? {email, device_id: deviceId}
+    : {message, device_id: deviceId, ...(email ? {email} : {})};
+
+  try {
+    const res = await fetch(API + path, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      contactStatus(
+        isShare ? 'Sent. Your friend will get a link to the app.'
+                : "Thanks. Your message is on its way to the founder.",
+        'var(--green)');
+      document.getElementById('contact-message').style.display = 'none';
+      document.getElementById('contact-email').style.display = 'none';
+      send.style.display = 'none';
+      document.getElementById('contact-close').textContent = 'Done';
+    } else {
+      contactStatus(explainContactError(res.status), '#ff6b6b');
+      send.disabled = false;
+      send.textContent = 'SEND';
+    }
+  } catch (e) {
+    contactStatus(explainContactError(0), '#ff6b6b');
+    send.disabled = false;
+    send.textContent = 'SEND';
+  }
+}
 function shareCorrection() {
   const text = `GolfCoachNow — ${MODULE_TITLES[currentModule]} Analysis\n\nFault: ${lastCorrection.fault}\nCorrection: ${lastCorrection.text}\n\nTry GolfCoachNow — AI-powered golf coaching`;
-  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied!'); }
+  shareText(text);
 }
-function shareTalkCorrection() {
-  const text = `GolfCoachNow — ${MODULE_TITLES[currentModule]} Talk Mode\n\nFault: ${lastCorrection.fault}\nCorrection: ${lastCorrection.text}\n\nTry GolfCoachNow — AI-powered golf coaching`;
-  if (navigator.share) { navigator.share({text}); } else { navigator.clipboard.writeText(text); alert('Copied!'); }
+
+// navigator.share returns a promise, and on desktop it usually rejects: the
+// API exists but there is no share target. The previous code ignored that
+// rejection, so the button did nothing at all and said nothing about it.
+async function shareText(text) {
+  if (navigator.share) {
+    try {
+      await navigator.share({text});
+      return;
+    } catch (err) {
+      // Closing the share sheet is a decision, not a failure. Falling through
+      // to the clipboard would copy something they chose not to send.
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Correction copied to your clipboard.');
+  } catch (err) {
+    // Last resort: put it on screen to be copied by hand, rather than a
+    // button that silently does nothing.
+    window.prompt('Copy your correction:', text);
+  }
 }
 
 // ── Camera ──
+// ── Video pipeline ──
+// One helper serves both video steps. onFinished runs exactly once, whichever
+// way the clip ends: played out, failed, or skipped. A missing or unplayable
+// video must never stop somebody recording, or hide the correction they earned.
+function playVideo(url, onFinished) {
+  const overlay = document.getElementById('video-overlay');
+  const player  = document.getElementById('video-player');
+  const tapBtn  = document.getElementById('video-tap');
+  let done = false;
+
+  function finish() {
+    if (done) return;
+    done = true;
+    player.onended = player.onerror = null;
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+    tapBtn.style.display = 'none';
+    overlay.style.display = 'none';
+    onFinished();
+  }
+
+  player.onended = finish;
+  player.onerror = finish;
+  document.getElementById('video-skip').onclick = finish;
+
+  tapBtn.style.display = 'none';
+  overlay.style.display = 'flex';
+  player.src = url;
+
+  player.play().catch(() => {
+    // Autoplay refused. Mobile browsers do this once an await has broken the
+    // chain back to the tap that started all this. Offering a tap keeps the
+    // coaching rather than silently skipping it.
+    tapBtn.style.display = '';
+    tapBtn.onclick = () => {
+      tapBtn.style.display = 'none';
+      player.play().catch(finish);
+    };
+  });
+}
+
+// Wire one and two: the instructional clip, then the camera.
+async function startModule(module) {
+  currentModule = module;
+  let url = null;
+  try {
+    const res = await fetch(API + '/videos/instructional?module=' + module);
+    if (res.ok) url = (await res.json()).url;
+  } catch (e) {
+    // Treated as "no video published", which is the same outcome for the user.
+  }
+  if (url) playVideo(url, () => openCamera(module));
+  else openCamera(module);
+}
+
+// Wire four: the correction clip, played over the card that is already filled
+// in behind it, so whatever happens the written correction is still there.
+function playCorrectionVideo(data) {
+  if (data && data.correction_video_url) {
+    playVideo(data.correction_video_url, () => {});
+  }
+}
+
 async function openCamera(module) {
   currentModule = module;
   repCount = 0;
@@ -435,17 +770,28 @@ async function openCamera(module) {
   document.getElementById('cam-correction').style.display = 'none';
   document.getElementById('rec-btn').classList.remove('recording');
   showScreen('camera');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    document.getElementById('cam-status').textContent = 'Camera not supported in this browser. Try Chrome or Safari.';
+    return;
+  }
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:true});
+    mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:true});
     document.getElementById('cam-preview').srcObject = mediaStream;
   } catch(e) {
-    document.getElementById('cam-status').textContent = 'Camera permission required';
+    if (e.name === 'NotAllowedError') {
+      document.getElementById('cam-status').textContent = 'Camera permission denied. Allow camera access in your browser settings.';
+    } else if (e.name === 'NotFoundError') {
+      document.getElementById('cam-status').textContent = 'No camera found on this device.';
+    } else {
+      document.getElementById('cam-status').textContent = 'Could not access camera: ' + (e.message || e.name);
+    }
   }
 }
 function closeCamera() { stopCameraStream(); goHome(); }
 function stopCameraStream() {
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+  try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch(e){}
   const v = document.getElementById('cam-preview'); if (v) v.srcObject = null;
 }
 
@@ -456,7 +802,13 @@ function toggleRecord() {
     btn.classList.remove('recording');
     return;
   }
-  if (!mediaStream) { document.getElementById('cam-status').textContent = 'Camera not available'; return; }
+  if (!mediaStream) { document.getElementById('cam-status').textContent = 'Camera not available. Go back and try again.'; return; }
+
+  if (typeof MediaRecorder === 'undefined') {
+    document.getElementById('cam-status').textContent = 'Video recording not supported in this browser. Try Chrome.';
+    return;
+  }
+
   document.getElementById('cam-correction').style.display = 'none';
   repCount++;
   document.getElementById('rep-count').textContent = repCount;
@@ -464,122 +816,119 @@ function toggleRecord() {
   document.getElementById('cam-status').style.display = '';
   btn.classList.add('recording');
   recordedChunks = [];
-  let mimeType = 'video/webm;codecs=vp8,opus';
-  if (!MediaRecorder.isTypeSupported(mimeType)) {
-    mimeType = 'video/mp4';
-    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
+
+  try {
+    let mimeType = '';
+    const tryTypes = ['video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+    for (const t of tryTypes) { if (MediaRecorder.isTypeSupported(t)) { mimeType = t; break; } }
+    mediaRecorder = mimeType ? new MediaRecorder(mediaStream, {mimeType}) : new MediaRecorder(mediaStream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => uploadVideo();
+    mediaRecorder.onerror = (e) => {
+      btn.classList.remove('recording');
+      document.getElementById('cam-status').textContent = 'Recording error. Try again.';
+    };
+    mediaRecorder.start(1000);
+  } catch(e) {
+    btn.classList.remove('recording');
+    repCount--;
+    document.getElementById('rep-count').textContent = repCount;
+    document.getElementById('cam-status').textContent = 'Could not start recording: ' + (e.message || 'Unknown error');
   }
-  mediaRecorder = mimeType ? new MediaRecorder(mediaStream, {mimeType}) : new MediaRecorder(mediaStream);
-  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-  mediaRecorder.onstop = () => uploadVideo();
-  mediaRecorder.start();
 }
 
 async function uploadVideo() {
   document.getElementById('cam-status').textContent = 'Uploading & analyzing...';
+  document.getElementById('cam-status').style.display = '';
+
+  if (recordedChunks.length === 0) {
+    document.getElementById('cam-status').textContent = 'No video recorded. Try recording for at least 2 seconds.';
+    return;
+  }
+
   const type = (mediaRecorder && mediaRecorder.mimeType) || 'video/mp4';
   const ext = type.includes('mp4') ? 'mp4' : type.includes('webm') ? 'webm' : 'mp4';
   const blob = new Blob(recordedChunks, {type});
+
+  if (blob.size < 1000) {
+    document.getElementById('cam-status').textContent = 'Video too short. Record for at least 2 seconds.';
+    return;
+  }
+
   const form = new FormData();
   form.append('file', blob, 'rep.' + ext);
   try {
     const res = await fetch(API + '/upload?module=' + currentModule + '&device_id=' + deviceId, {method:'POST', body:form});
-    if (res.status === 403) { showScreen('paywall'); return; }
-    if (!res.ok) throw new Error('Upload failed');
+    if (res.status === 403) {
+      document.getElementById('cam-status').textContent = 'Free reps used today. Subscribe for unlimited.';
+      setTimeout(() => showScreen('paywall'), 1500);
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error((err && err.detail) || 'Server error ' + res.status);
+    }
     const data = await res.json();
     lastCorrection = {fault: (data.dominant_fault||'').replace(/_/g,' ').toUpperCase(), text: data.correction||''};
     document.getElementById('cam-fault').textContent = lastCorrection.fault;
     document.getElementById('cam-correction-text').textContent = lastCorrection.text;
     document.getElementById('cam-correction').style.display = '';
+    playCorrectionVideo(data);
     document.getElementById('cam-status').style.display = 'none';
     trackEvent('rep_completed');
   } catch(e) {
-    document.getElementById('cam-status').textContent = e.message || 'Analysis failed';
+    document.getElementById('cam-status').textContent = 'Analysis failed: ' + (e.message || 'Unknown error') + '. Try again.';
+  }
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  if (!file.type.startsWith('video/')) {
+    document.getElementById('cam-status').textContent = 'Please select a video file.';
+    document.getElementById('cam-status').style.display = '';
+    return;
+  }
+  if (file.size > 50 * 1024 * 1024) {
+    document.getElementById('cam-status').textContent = 'Video too large (max 50MB). Try a shorter clip.';
+    document.getElementById('cam-status').style.display = '';
+    return;
+  }
+  repCount++;
+  document.getElementById('rep-count').textContent = repCount;
+  document.getElementById('cam-correction').style.display = 'none';
+  document.getElementById('cam-status').textContent = 'Uploading & analyzing...';
+  document.getElementById('cam-status').style.display = '';
+
+  const ext = file.name.split('.').pop() || 'mp4';
+  const form = new FormData();
+  form.append('file', file, 'rep.' + ext);
+  try {
+    const res = await fetch(API + '/upload?module=' + currentModule + '&device_id=' + deviceId, {method:'POST', body:form});
+    if (res.status === 403) {
+      document.getElementById('cam-status').textContent = 'Free reps used today. Subscribe for unlimited.';
+      setTimeout(() => showScreen('paywall'), 1500);
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error((err && err.detail) || 'Server error ' + res.status);
+    }
+    const data = await res.json();
+    lastCorrection = {fault: (data.dominant_fault||'').replace(/_/g,' ').toUpperCase(), text: data.correction||''};
+    document.getElementById('cam-fault').textContent = lastCorrection.fault;
+    document.getElementById('cam-correction-text').textContent = lastCorrection.text;
+    document.getElementById('cam-correction').style.display = '';
+    playCorrectionVideo(data);
+    document.getElementById('cam-status').style.display = 'none';
+    trackEvent('rep_completed');
+  } catch(e) {
+    document.getElementById('cam-status').textContent = 'Analysis failed: ' + (e.message || 'Unknown error') + '. Try again.';
   }
 }
 
 // ── Talk Mode ──
-function openTalkSelect() { showScreen('talk-select'); }
-function openTalk(module) {
-  currentModule = module;
-  document.getElementById('talk-module-badge').textContent = MODULE_TITLES[module];
-  document.getElementById('talk-status').textContent = 'Tap the mic and describe your swing';
-  document.getElementById('talk-transcript').style.display = 'none';
-  document.getElementById('talk-correction-wrap').style.display = 'none';
-  document.getElementById('talk-mic-btn').classList.remove('listening');
-  showScreen('talk');
-}
-function closeTalk() { stopRecognition(); goHome(); }
-
-function toggleTalkMic() {
-  const btn = document.getElementById('talk-mic-btn');
-  if (btn.classList.contains('listening')) { stopRecognition(); return; }
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    document.getElementById('talk-status').textContent = 'Speech recognition not supported in this browser';
-    return;
-  }
-  document.getElementById('talk-correction-wrap').style.display = 'none';
-  document.getElementById('talk-transcript').style.display = 'none';
-  btn.classList.add('listening');
-  document.getElementById('talk-status').textContent = 'Listening...';
-
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.lang = 'en-US';
-  recognition.interimResults = true;
-  recognition.continuous = false;
-
-  recognition.onresult = e => {
-    let text = '';
-    for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
-    document.getElementById('talk-transcript').textContent = '"' + text + '"';
-    document.getElementById('talk-transcript').style.display = '';
-  };
-  recognition.onend = () => {
-    btn.classList.remove('listening');
-    const text = document.getElementById('talk-transcript').textContent.replace(/^"|"$/g,'');
-    if (text) sendTalk(text); else document.getElementById('talk-status').textContent = "Didn't catch that. Try again.";
-  };
-  recognition.onerror = () => {
-    btn.classList.remove('listening');
-    document.getElementById('talk-status').textContent = 'Try again';
-  };
-  recognition.start();
-}
-function stopRecognition() {
-  if (recognition) { recognition.abort(); recognition = null; }
-  document.getElementById('talk-mic-btn').classList.remove('listening');
-}
-
-async function sendTalk(text) {
-  document.getElementById('talk-status').textContent = 'Analyzing...';
-  try {
-    const res = await fetch(API + '/talk', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text, module:currentModule, device_id:deviceId})
-    });
-    if (res.status === 403) { showScreen('paywall'); return; }
-    const data = await res.json();
-    if (data.matched && data.fault) {
-      lastCorrection = {fault: data.fault.replace(/_/g,' ').toUpperCase(), text: data.correction};
-      document.getElementById('talk-fault').textContent = lastCorrection.fault;
-      document.getElementById('talk-correction-text').textContent = data.correction;
-      document.getElementById('talk-correction-wrap').style.display = '';
-      document.getElementById('talk-status').textContent = '';
-      if ('speechSynthesis' in window) {
-        ttsUtterance = new SpeechSynthesisUtterance(data.correction);
-        ttsUtterance.lang = 'en-US';
-        speechSynthesis.speak(ttsUtterance);
-      }
-    } else {
-      document.getElementById('talk-status').textContent = data.correction || 'No correction found';
-    }
-  } catch(e) {
-    document.getElementById('talk-status').textContent = 'Failed to get correction';
-  }
-}
-
 // ── Paywall ──
 async function subscribe() {
   const btn = document.getElementById('subscribe-btn');
