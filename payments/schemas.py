@@ -150,6 +150,15 @@ class VerifyCodeRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     code: str = Field(min_length=4, max_length=12)
     device_id: str | None = Field(default=None, max_length=DEVICE_ID_MAX_LENGTH)
+    name: str | None = Field(
+        default=None,
+        max_length=80,
+        description=(
+            "What to call this person on the home screen. Optional: sending it "
+            "again with a different value corrects it, sending nothing leaves "
+            "whatever is already stored alone."
+        ),
+    )
 
     _check_email = field_validator("email")(looks_like_an_email)
 
@@ -159,7 +168,10 @@ class VerifyCodeResponse(BaseModel):
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {"token": "Zx8kQ2p7vB1nR4wS9tY6uH3jL5aD0fG7cE2mN8qX1oI"}
+            "example": {
+                "token": "Zx8kQ2p7vB1nR4wS9tY6uH3jL5aD0fG7cE2mN8qX1oI",
+                "name": "John",
+            }
         }
     )
 
@@ -169,6 +181,15 @@ class VerifyCodeResponse(BaseModel):
             "store on the device, Keychain on iOS and EncryptedSharedPreferences "
             "on Android, not alongside ordinary settings."
         )
+    )
+    name: str | None = Field(
+        default=None,
+        description=(
+            "What to call this person, for the greeting. Null when the account "
+            "has no name stored, which is the case for anybody who signed in "
+            "before names existed. Fall back to a generic greeting rather than "
+            "showing an empty one."
+        ),
     )
 
 

@@ -135,11 +135,13 @@ def verify_code(
     if wait is not None:
         raise _too_many(wait)
 
-    token = verify_login_code(db, payload.email, payload.code, payload.device_id)
-    if token is None:
+    signed_in = verify_login_code(
+        db, payload.email, payload.code, payload.device_id, payload.name
+    )
+    if signed_in is None:
         raise HTTPException(status_code=401, detail="That code is not valid.")
 
-    return VerifyCodeResponse(token=token)
+    return VerifyCodeResponse(token=signed_in.token, name=signed_in.name)
 
 
 @router.post(

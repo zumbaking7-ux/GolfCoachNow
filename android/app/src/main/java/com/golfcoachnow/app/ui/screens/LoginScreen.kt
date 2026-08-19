@@ -36,6 +36,7 @@ fun LoginScreen(
 
     var email by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var codeSent by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -147,16 +148,42 @@ fun LoginScreen(
                         loading = true
                         error = null
                         scope.launch {
-                            val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId)
+                            val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId, name)
                             loading = false
                             result.onSuccess { resp ->
-                                AuthManager.save(context, resp.token, email)
+                                AuthManager.save(context, resp.token, email, resp.name)
                                 onSignedIn()
                             }
                             result.onFailure { error = it.message ?: "Invalid code" }
                         }
                     }
                 }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GolfGreen,
+                    unfocusedBorderColor = GolfGreenBorder,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = GolfGreen,
+                    focusedLabelColor = GolfGreen,
+                    unfocusedLabelColor = TextMuted,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Asked for here rather than on the email step so getting a code
+            // stays a single field. Optional: leaving it blank never erases a
+            // name already on the account.
+            OutlinedTextField(
+                value = name,
+                onValueChange = { if (it.length <= 80) name = it },
+                label = { Text("Your first name") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done,
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = GolfGreen,
                     unfocusedBorderColor = GolfGreenBorder,
@@ -179,10 +206,10 @@ fun LoginScreen(
                     loading = true
                     error = null
                     scope.launch {
-                        val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId)
+                        val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId, name)
                         loading = false
                         result.onSuccess { resp ->
-                            AuthManager.save(context, resp.token, email)
+                            AuthManager.save(context, resp.token, email, resp.name)
                             onSignedIn()
                         }
                         result.onFailure { error = it.message ?: "Invalid code" }
@@ -195,6 +222,7 @@ fun LoginScreen(
             TextButton(onClick = {
                 codeSent = false
                 code = ""
+                name = ""
                 error = null
             }) {
                 Text("Use different email", color = GolfGreen, fontSize = 14.sp)

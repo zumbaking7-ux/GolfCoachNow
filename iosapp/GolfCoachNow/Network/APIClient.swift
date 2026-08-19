@@ -183,7 +183,12 @@ final class APIClient {
         }.resume()
     }
 
-    func verifyLoginCode(email: String, code: String, completion: @escaping (Result<String, Error>) -> Void) {
+    func verifyLoginCode(
+        email: String,
+        code: String,
+        name: String? = nil,
+        completion: @escaping (Result<(token: String, name: String?), Error>) -> Void
+    ) {
         guard let url = URL(string: APIConfig.baseURL + "/auth/verify-code") else {
             completion(.failure(APIError.invalidURL))
             return
@@ -192,11 +197,17 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+        var body: [String: Any] = [
             "email": email,
             "code": code,
             "device_id": EntitlementManager.shared.deviceId,
-        ])
+        ]
+        // Sent only when the golfer typed one. Omitting it leaves whatever
+        // is already stored on the account alone.
+        if let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["name"] = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         session.dataTask(with: request) { data, response, error in
             if let error { completion(.failure(error)); return }
@@ -206,7 +217,7 @@ final class APIClient {
             if http.statusCode == 200 {
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let token = json["token"] as? String {
-                    completion(.success(token))
+                    completion(.success((token: token, name: json["name"] as? String)))
                 } else {
                     completion(.failure(APIError.invalidResponse))
                 }

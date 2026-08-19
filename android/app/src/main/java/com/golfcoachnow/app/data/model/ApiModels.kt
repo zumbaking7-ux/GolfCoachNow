@@ -70,9 +70,24 @@ data class EntitlementResponse(
     @SerialName("daily_limit") val dailyLimit: Int = -1,
 )
 
+// Serialised properly rather than interpolated into a string. The name is typed
+// by a person, so a quote or a backslash in it would otherwise produce
+// malformed JSON and a baffling 422.
+@Serializable
+data class VerifyCodeRequest(
+    val email: String,
+    val code: String,
+    @SerialName("device_id") val deviceId: String,
+    val name: String? = null,
+)
+
 @Serializable
 data class VerifyCodeResponse(
     val token: String = "",
+    // Null when the account has no name stored, which is every account
+    // created before names existed. The greeting falls back rather than
+    // rendering an empty one.
+    val name: String? = null,
 )
 
 @Serializable

@@ -203,21 +203,18 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     }
 
     private func updateGreeting() {
-        let name: String
-        if let email = AuthManager.shared.email, AuthManager.shared.isSignedIn {
-            name = email.components(separatedBy: "@").first?.capitalized ?? "Golfer"
-        } else {
-            name = "Golfer"
-        }
+        // The name comes from the account. "there" is the fallback for anyone
+        // signed out, or signed in before names were captured.
+        let stored = AuthManager.shared.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = (stored?.isEmpty == false) ? stored! : "there"
+
+        let bold: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 24, weight: .bold),
+            .foregroundColor: UIColor.white
+        ]
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(
-            string: Theme.timeGreeting() + "\n",
-            attributes: [
-                .font: UIFont.systemFont(ofSize: 24, weight: .bold),
-                .foregroundColor: UIColor.white
-            ]
-        ))
+        text.append(NSAttributedString(string: "Hi ", attributes: bold))
         text.append(NSAttributedString(
             string: name,
             attributes: [
@@ -225,6 +222,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
                 .foregroundColor: Theme.green
             ]
         ))
+        text.append(NSAttributedString(string: ".", attributes: bold))
         greetingLabel.attributedText = text
     }
 

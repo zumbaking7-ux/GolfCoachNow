@@ -7,6 +7,7 @@ final class AuthManager {
 
     private let tokenAccount = "gcn_auth_token"
     private let emailKey = "gcn_auth_email"
+    private let nameKey = "gcn_auth_name"
     private let service = "com.golfcoachnow.auth"
 
     var isSignedIn: Bool { token != nil }
@@ -18,6 +19,22 @@ final class AuthManager {
                 UserDefaults.standard.set(newValue, forKey: emailKey)
             } else {
                 UserDefaults.standard.removeObject(forKey: emailKey)
+            }
+        }
+    }
+
+    /// What to call this person on the home screen.
+    ///
+    /// Comes from the account rather than the email address. Deriving it from
+    /// the address greeted waleflutter@gmail.com as "Waleflutter".
+    var name: String? {
+        get { UserDefaults.standard.string(forKey: nameKey) }
+        set {
+            let cleaned = newValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let cleaned, !cleaned.isEmpty {
+                UserDefaults.standard.set(cleaned, forKey: nameKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: nameKey)
             }
         }
     }
@@ -36,6 +53,7 @@ final class AuthManager {
     func signOut() {
         token = nil
         email = nil
+        name = nil
         NotificationCenter.default.post(name: .authStateDidChange, object: nil)
     }
 

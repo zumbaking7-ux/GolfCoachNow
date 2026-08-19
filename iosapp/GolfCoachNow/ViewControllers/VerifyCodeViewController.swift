@@ -50,6 +50,26 @@ final class VerifyCodeViewController: UIViewController {
 
     private var digitFields: [UITextField] = []
 
+    /// Asked for here rather than on the email screen so requesting a code
+    /// stays a single field. Optional: left blank it never erases a name
+    /// already stored on the account.
+    private let nameField: UITextField = {
+        let field = UITextField()
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.font = .systemFont(ofSize: 17, weight: .medium)
+        field.textColor = .white
+        field.textAlignment = .center
+        field.backgroundColor = UIColor(red: 0.14, green: 0.14, blue: 0.18, alpha: 1.0)
+        field.layer.cornerRadius = 12
+        field.autocapitalizationType = .words
+        field.textContentType = .givenName
+        field.attributedPlaceholder = NSAttributedString(
+            string: "Your first name",
+            attributes: [.foregroundColor: UIColor(white: 1, alpha: 0.35)]
+        )
+        return field
+    }()
+
     private let verifyButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -125,7 +145,7 @@ final class VerifyCodeViewController: UIViewController {
             digitsStack.addArrangedSubview(field)
         }
 
-        let stack = UIStackView(arrangedSubviews: [iconView, titleLabel, subtitleLabel, digitsStack, verifyButton, resendButton, warningLabel])
+        let stack = UIStackView(arrangedSubviews: [iconView, titleLabel, subtitleLabel, digitsStack, nameField, verifyButton, resendButton, warningLabel])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.spacing = 16
@@ -133,7 +153,8 @@ final class VerifyCodeViewController: UIViewController {
 
         stack.setCustomSpacing(8, after: iconView)
         stack.setCustomSpacing(32, after: subtitleLabel)
-        stack.setCustomSpacing(24, after: digitsStack)
+        stack.setCustomSpacing(16, after: digitsStack)
+        stack.setCustomSpacing(24, after: nameField)
         stack.setCustomSpacing(16, after: verifyButton)
         stack.setCustomSpacing(4, after: resendButton)
 
@@ -156,6 +177,7 @@ final class VerifyCodeViewController: UIViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
             iconView.heightAnchor.constraint(equalToConstant: 64),
+            nameField.heightAnchor.constraint(equalToConstant: 52),
             verifyButton.heightAnchor.constraint(equalToConstant: 56),
 
             spinner.centerXAnchor.constraint(equalTo: verifyButton.centerXAnchor),
@@ -181,12 +203,16 @@ final class VerifyCodeViewController: UIViewController {
         view.endEditing(true)
         setLoading(true)
 
-        APIClient.shared.verifyLoginCode(email: email, code: code) { [weak self] result in
+        APIClient.shared.verifyLoginCode(
+            email: email,
+            code: code,
+            name: nameField.text
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.setLoading(false)
                 switch result {
-                case .success(let token):
-                    self?.handleSuccess(token: token)
+                case .success(let signedIn):
+                    self?.handleSuccess(token: signedIn.token, name: signedIn.name)
                 case .failure(let error):
                     self?.handleFailure(error)
                 }
@@ -215,9 +241,10 @@ final class VerifyCodeViewController: UIViewController {
         }
     }
 
-    private func handleSuccess(token: String) {
+    private func handleSuccess(token: String, name: String?) {
         AuthManager.shared.token = token
         AuthManager.shared.email = email
+        AuthManager.shared.name = name
         NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         EntitlementManager.shared.checkRemoteStatus()
 

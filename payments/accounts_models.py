@@ -26,6 +26,10 @@ EMAIL_LENGTH = 320
 HASH_LENGTH = 64
 DEVICE_ID_LENGTH = 255
 
+# Long enough for any real name, short enough that the greeting cannot be used
+# to paste an essay onto the home screen.
+NAME_LENGTH = 80
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -44,6 +48,13 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(EMAIL_LENGTH), nullable=False)
+
+    # What the person is called, for the greeting on the home screen. Nullable
+    # because email is the identity and a name is not required to sign in:
+    # everyone who signed in before this column existed has no name, and
+    # refusing them a greeting would be worse than a generic one.
+    name: Mapped[str | None] = mapped_column(String(NAME_LENGTH), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

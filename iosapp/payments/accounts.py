@@ -25,12 +25,20 @@ import hashlib
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from payments.accounts_models import AuthToken, LoginCode, User, UserDevice, utcnow
+from payments.accounts_models import (
+    NAME_LENGTH,
+    AuthToken,
+    LoginCode,
+    User,
+    UserDevice,
+    utcnow,
+)
 from payments.config import settings
 from payments.logging_config import fields, get_logger
 from payments.models import Unlock
@@ -108,14 +116,26 @@ def request_login_code(session: Session, email: str) -> str:
     return code
 
 
+class SignIn(NamedTuple):
+    """A completed sign in: the token, and what to call the person."""
+
+    token: str
+    name: str | None
+
+
 def verify_login_code(
-    session: Session, email: str, code: str, device_id: str | None
-) -> str | None:
-    """Check a code and hand back a token, or None if it does not check out.
+    session: Session, email: str, code: str, device_id: str | None,
+    name: str | None = None,
+) -> SignIn | None:
+    """Check a code and hand back a session, or None if it does not check out.
 
     One return value for every kind of failure on purpose. Telling the caller
     apart - no code requested, wrong code, expired, too many attempts - tells
     an attacker which addresses have accounts and how close they are.
+
+    `name` is what the person typed on the sign in screen. It is stored against
+    the account so the greeting survives a reinstall or a second device, which
+    is the whole reason it lives here rather than on the phone.
     """
     address = normalise_email(email)
 
@@ -152,6 +172,14 @@ def verify_login_code(
 
     pending.used_at = _now()
     user = _find_or_create_user(session, address)
+
+    # A name given now wins, so somebody who typed a nickname the first time
+    # can correct it by signing in again. A blank one never erases what is
+    # already stored.
+    cleaned = (name or "").strip()[:NAME_LENGTH]
+    if cleaned:
+        user.name = cleaned
+
     if device_id:
         _link_device(session, user, device_id)
 
@@ -160,7 +188,7 @@ def verify_login_code(
     session.commit()
 
     logger.info("signed in %s", fields(user_id=user.id, device_id=device_id))
-    return token
+    return SignIn(token=token, name=user.name)
 
 
 def _user_by_email(session: Session, address: str) -> User | None:

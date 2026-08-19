@@ -198,9 +198,12 @@ object ApiClient {
         email: String,
         code: String,
         deviceId: String,
+        name: String? = null,
     ): Result<VerifyCodeResponse> = withContext(Dispatchers.IO) {
         try {
-            val payload = """{"email":"$email","code":"$code","device_id":"$deviceId"}"""
+            val payload = json.encodeToString(
+                VerifyCodeRequest(email, code, deviceId, name?.takeIf { it.isNotBlank() })
+            )
             val request = Request.Builder()
                 .url("$baseUrl/auth/verify-code")
                 .post(payload.toRequestBody("application/json".toMediaType()))

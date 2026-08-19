@@ -236,7 +236,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="inner">
         <div class="bar"></div>
         <div>
-          <h2 id="greeting-text">Good morning,<br><span>Golfer</span></h2>
+          <h2 id="greeting-text">Hi <span>there</span>.</h2>
           <p>What would you like<br>to learn today?</p>
         </div>
       </div>
@@ -362,6 +362,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 
   <div id="login-code-step" style="display:none">
     <input type="text" id="login-code" class="login-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+    <input type="text" id="login-name" class="login-input" placeholder="Your first name" maxlength="80" autocomplete="given-name">
     <button class="login-btn" id="login-verify-btn" onclick="loginVerifyCode()">Verify</button>
     <button class="login-link" onclick="loginBackToEmail()">Use different email</button>
   </div>
@@ -426,6 +427,7 @@ let recordedChunks = [];
 let lastCorrection = {};
 let authToken = localStorage.getItem('gcn_auth_token');
 let authEmail = localStorage.getItem('gcn_auth_email');
+let authName  = localStorage.getItem('gcn_auth_name');
 
 // ── Navigation ──
 function showScreen(id) {
@@ -436,10 +438,14 @@ function goHome() { stopCameraStream(); showScreen('home'); }
 
 // ── Greeting ──
 function updateGreeting() {
-  const h = new Date().getHours();
-  const g = h >= 5 && h < 12 ? 'Good morning,' : h >= 12 && h < 17 ? 'Good afternoon,' : 'Good evening,';
-  const name = authEmail ? authEmail.split('@')[0] : 'Golfer';
-  document.getElementById('greeting-text').innerHTML = g + '<br><span>' + name + '</span>';
+  // The name comes from the account, never from the email address. Deriving it
+  // from the address greeted waleflutter@gmail.com as "waleflutter", which is
+  // worse than not personalising at all.
+  const name = (authName || '').trim() || 'there';
+  const safe = name.replace(/[&<>"]/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]
+  ));
+  document.getElementById('greeting-text').innerHTML = 'Hi <span>' + safe + '</span>.';
 }
 updateGreeting();
 
@@ -459,9 +465,11 @@ function updateAccountUI() {
 function handleAccountBtn() {
   if (authToken) {
     fetch(API + '/auth/sign-out', {method:'POST', headers:{'Authorization':'Bearer '+authToken}}).catch(()=>{});
-    authToken = null; authEmail = null;
+    authToken = null; authEmail = null; authName = null;
     localStorage.removeItem('gcn_auth_token');
     localStorage.removeItem('gcn_auth_email');
+    localStorage.removeItem('gcn_auth_name');
+    updateGreeting();
     updateAccountUI();
   } else {
     document.getElementById('login-email-step').style.display = '';
@@ -499,6 +507,7 @@ async function loginSendCode() {
 async function loginVerifyCode() {
   const email = document.getElementById('login-email').value.trim();
   const code = document.getElementById('login-code').value.trim();
+  const name = document.getElementById('login-name').value.trim();
   if (code.length !== 6) { document.getElementById('login-error').textContent = 'Enter the 6-digit code'; return; }
   const btn = document.getElementById('login-verify-btn');
   btn.disabled = true; btn.textContent = 'Verifying...';
@@ -506,15 +515,18 @@ async function loginVerifyCode() {
   try {
     const res = await fetch(API + '/auth/verify-code', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, code, device_id: deviceId})
+      body: JSON.stringify({email, code, device_id: deviceId, name})
     });
     if (res.status === 401) throw new Error('Invalid or expired code. Try again.');
     if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
     if (!res.ok) throw new Error('Verification failed');
     const data = await res.json();
-    authToken = data.token; authEmail = email;
+    authToken = data.token; authEmail = email; authName = data.name || null;
     localStorage.setItem('gcn_auth_token', authToken);
     localStorage.setItem('gcn_auth_email', authEmail);
+    if (authName) localStorage.setItem('gcn_auth_name', authName);
+    else localStorage.removeItem('gcn_auth_name');
+    updateGreeting();
     updateAccountUI();
     goHome();
   } catch(e) {

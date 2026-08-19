@@ -56,6 +56,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userEmail by AuthManager.email.collectAsState()
+    val userName by AuthManager.name.collectAsState()
 
     var showShareDialog by remember { mutableStateOf(false) }
     var showFounderDialog by remember { mutableStateOf(false) }
@@ -150,11 +151,16 @@ fun HomeScreen(
                         Text(
                             text = buildAnnotatedString {
                                 withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
-                                    append(timeGreeting())
-                                    append("\n")
+                                    append("Hi ")
                                 }
                                 withStyle(SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)) {
-                                    append("Golfer")
+                                    // From the account, never derived from the
+                                    // email address. Deriving it greeted
+                                    // waleflutter@gmail.com as "waleflutter".
+                                    append(userName?.takeIf { it.isNotBlank() } ?: "there")
+                                }
+                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+                                    append(".")
                                 }
                             },
                             fontSize = 24.sp,
