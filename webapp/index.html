@@ -151,15 +151,15 @@ font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer}
 /* ── Login Screen ── */
 .login-screen{background:var(--bg)}
 .login-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:24px;padding-top:48px}
-.login-icon{font-size:48px;margin-bottom:16px}
+.login-icon{width:64px;height:64px;border-radius:14px;object-fit:cover;margin-bottom:16px}
 .login-content h2{font-size:26px;font-weight:700;color:var(--white);margin-bottom:8px}
 .login-content p{font-size:14px;color:var(--muted);text-align:center;margin-bottom:32px;line-height:1.5}
 .login-input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--green-border);
 background:var(--card);color:var(--white);font-size:16px;outline:none;margin-bottom:16px}
 .login-input:focus{border-color:var(--green);box-shadow:0 0 12px var(--green-glow)}
-.login-btn{width:100%;padding:14px;border-radius:14px;border:1px solid #618c1f;
-background:linear-gradient(to bottom,#8fc238,#6b9e24);color:#000;font-size:16px;
-font-weight:700;cursor:pointer}
+.login-btn{width:100%;padding:14px;border-radius:10px;border:1px solid #618c1f;
+background:linear-gradient(to bottom,#8fc238,#6b9e24);color:#000;font-size:15px;
+font-weight:800;cursor:pointer;letter-spacing:0.02em;text-transform:uppercase}
 .login-btn:disabled{opacity:0.4;cursor:default}
 .login-link{background:none;border:none;color:var(--green);font-size:14px;cursor:pointer;margin-top:16px;
 font-weight:600}
@@ -351,7 +351,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
   <div style="width:40px"></div>
 </div>
 <div class="login-content">
-  <div class="login-icon">🏌️</div>
+  <img class="login-icon" src="/static/img/ic_swing.png" alt="GolfCoachNow">
   <h2 id="login-title">Sign In</h2>
   <p id="login-subtitle">Enter your email to receive a sign-in code</p>
 
