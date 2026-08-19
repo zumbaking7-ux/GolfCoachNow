@@ -497,6 +497,10 @@ async function loginSendCode() {
     if (!res.ok) throw new Error('Failed to send code');
     document.getElementById('login-email-step').style.display = 'none';
     document.getElementById('login-code-step').style.display = '';
+    const known = localStorage.getItem('gcn_name_for_' + email.toLowerCase());
+    const nameInput = document.getElementById('login-name');
+    nameInput.value = known || '';
+    nameInput.style.display = known ? 'none' : '';
     document.getElementById('login-title').textContent = 'Enter Code';
     document.getElementById('login-subtitle').textContent = 'We sent a 6-digit code to ' + email;
   } catch(e) {
@@ -524,8 +528,16 @@ async function loginVerifyCode() {
     authToken = data.token; authEmail = email; authName = data.name || null;
     localStorage.setItem('gcn_auth_token', authToken);
     localStorage.setItem('gcn_auth_email', authEmail);
-    if (authName) localStorage.setItem('gcn_auth_name', authName);
-    else localStorage.removeItem('gcn_auth_name');
+    if (authName) {
+      localStorage.setItem('gcn_auth_name', authName);
+      // Kept past sign out, keyed by address, so a returning golfer is not
+      // asked their name again. Someone else signing in on the same device
+      // types a different address and gets a fresh field, so nothing of
+      // theirs is shown to anyone.
+      localStorage.setItem('gcn_name_for_' + email.toLowerCase(), authName);
+    } else {
+      localStorage.removeItem('gcn_auth_name');
+    }
     updateGreeting();
     updateAccountUI();
     goHome();

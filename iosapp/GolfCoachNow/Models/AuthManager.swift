@@ -8,6 +8,24 @@ final class AuthManager {
     private let tokenAccount = "gcn_auth_token"
     private let emailKey = "gcn_auth_email"
     private let nameKey = "gcn_auth_name"
+
+    /// Survives sign out, keyed by address, so a returning golfer is not
+    /// asked their name again. Someone else signing in on this device types
+    /// a different address and gets a fresh field, so nothing of theirs is
+    /// shown to anyone.
+    private func rememberedNameKey(_ email: String) -> String {
+        "gcn_name_for_" + email.lowercased()
+    }
+
+    func rememberedName(for email: String) -> String? {
+        UserDefaults.standard.string(forKey: rememberedNameKey(email))
+    }
+
+    func remember(name: String?, for email: String) {
+        let cleaned = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let cleaned, !cleaned.isEmpty else { return }
+        UserDefaults.standard.set(cleaned, forKey: rememberedNameKey(email))
+    }
     private let service = "com.golfcoachnow.auth"
 
     var isSignedIn: Bool { token != nil }

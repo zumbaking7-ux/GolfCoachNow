@@ -37,6 +37,8 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    // True once we know this device has signed in with this address before.
+    var nameAlreadyKnown by remember { mutableStateOf(false) }
     var codeSent by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -99,7 +101,12 @@ fun LoginScreen(
                         scope.launch {
                             val result = ApiClient.requestCode(email)
                             loading = false
-                            result.onSuccess { codeSent = true }
+                            result.onSuccess {
+                                val known = AuthManager.rememberedName(context, email.trim())
+                                nameAlreadyKnown = !known.isNullOrBlank()
+                                name = known.orEmpty()
+                                codeSent = true
+                            }
                             result.onFailure { error = it.message ?: "Failed to send code" }
                         }
                     }
@@ -128,7 +135,12 @@ fun LoginScreen(
                     scope.launch {
                         val result = ApiClient.requestCode(email)
                         loading = false
-                        result.onSuccess { codeSent = true }
+                        result.onSuccess {
+                            val known = AuthManager.rememberedName(context, email.trim())
+                            nameAlreadyKnown = !known.isNullOrBlank()
+                            name = known.orEmpty()
+                            codeSent = true
+                        }
                         result.onFailure { error = it.message ?: "Failed to send code" }
                     }
                 },
@@ -170,11 +182,12 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Shown only the first time this device signs in with this
+            // address. After that the account already has a name, and asking
+            // again invites people to keep changing it.
+            if (!nameAlreadyKnown) {
             Spacer(Modifier.height(12.dp))
 
-            // Asked for here rather than on the email step so getting a code
-            // stays a single field. Optional: leaving it blank never erases a
-            // name already on the account.
             OutlinedTextField(
                 value = name,
                 onValueChange = { if (it.length <= 80) name = it },
@@ -195,6 +208,7 @@ fun LoginScreen(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
+            }
 
             Spacer(Modifier.height(20.dp))
 

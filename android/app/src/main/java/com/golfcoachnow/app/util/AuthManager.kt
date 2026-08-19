@@ -14,6 +14,12 @@ private val KEY_TOKEN = stringPreferencesKey("token")
 private val KEY_EMAIL = stringPreferencesKey("email")
 private val KEY_NAME = stringPreferencesKey("name")
 
+// Survives sign out, keyed by address, so a returning golfer is not asked
+// their name again. Someone else signing in on the same device types a
+// different address and gets a fresh field, so nothing of theirs is shown.
+private fun rememberedNameKey(email: String) =
+    stringPreferencesKey("name_for_" + email.lowercase())
+
 object AuthManager {
 
     private val _email = MutableStateFlow<String?>(null)
@@ -40,12 +46,21 @@ object AuthManager {
         context.authStore.edit {
             it[KEY_TOKEN] = token
             it[KEY_EMAIL] = email
-            if (name.isNullOrBlank()) it.remove(KEY_NAME) else it[KEY_NAME] = name
+            if (name.isNullOrBlank()) {
+                it.remove(KEY_NAME)
+            } else {
+                it[KEY_NAME] = name
+                it[rememberedNameKey(email)] = name
+            }
         }
         _token = token
         _email.value = email
         _name.value = name?.takeIf { it.isNotBlank() }
     }
+
+    /** What we already call this address, if we have signed in with it here. */
+    suspend fun rememberedName(context: Context, email: String): String? =
+        context.authStore.data.first()[rememberedNameKey(email)]
 
     suspend fun signOut(context: Context) {
         context.authStore.edit {

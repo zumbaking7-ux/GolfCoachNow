@@ -112,6 +112,11 @@ final class VerifyCodeViewController: UIViewController {
         view.backgroundColor = UIColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 1.0)
         subtitleLabel.text = "We sent a 6-digit code to\n\(email)"
         setupUI()
+        // Only ask a name the first time this device signs in with this
+        // address. Asking every time invites people to keep changing it.
+        let known = AuthManager.shared.rememberedName(for: email)
+        nameField.text = known
+        nameField.isHidden = (known?.isEmpty == false)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -245,6 +250,7 @@ final class VerifyCodeViewController: UIViewController {
         AuthManager.shared.token = token
         AuthManager.shared.email = email
         AuthManager.shared.name = name
+        AuthManager.shared.remember(name: name, for: email)
         NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         EntitlementManager.shared.checkRemoteStatus()
 
