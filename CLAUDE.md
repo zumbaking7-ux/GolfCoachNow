@@ -55,7 +55,17 @@ second directory is a git clone of the stale root tree and serves nothing.
   paths resolved against an unclear working directory. The live database is
   `mysite/payments.db`.
 - Database is SQLite. Migrations are Alembic; run them with
-  `python3.10 -m alembic upgrade head` from `mysite/`.
+  `python3.10 -m alembic upgrade head` from `mysite/`. **The WSGI file also runs
+  migrations on startup**, so a reload can migrate.
+- The WSGI file is a hand-written **ASGI-to-WSGI bridge**, roughly 80 lines,
+  because PythonAnywhere serves WSGI and FastAPI is ASGI. It builds an ASGI
+  scope from the WSGI environ by hand.
+- **CPU is metered and finite.** Pose analysis is the most expensive thing the
+  server does. The previous contractor deliberately left MediaPipe uninstalled
+  for this reason. It is installed now, which is the right call for honesty,
+  but it means CPU consumption per swing went up sharply. Watch the quota on
+  the dashboard once real users arrive; this is the ceiling that arrives
+  exactly when success does.
 
 `DEPLOY.md` is the runbook. Follow it. The verification step before reloading
 matters: a broken import takes the whole site down, `/upload` included, not just
@@ -123,7 +133,26 @@ so swapping a clip needs no app release. Keep it that way.
 weeks and looked like a configuration problem.
 
 **Entitlement is keyed to the device, not the account.** Deliberate: otherwise a
-new account every three reps defeats the paywall.
+new account every three reps defeats the paywall. It resets at **UTC midnight**,
+not in the golfer's own timezone.
+
+**`/upload` takes `module` and `device_id` as query parameters, not form
+fields.** Not a style choice: the ASGI-to-WSGI bridge does not parse non-file
+fields out of multipart bodies. If the app ever moves to a real ASGI server,
+they can go back into the form body.
+
+**Browsers disagree about recording format.** iOS Safari's `MediaRecorder`
+produces MP4, Chrome produces WebM. `ALLOWED_EXTENSIONS` accepts both and the
+web app detects which it got. Do not "tidy" WebM out of that list.
+
+**Nobody has paid yet.** The `unlocks` table is empty and no Stripe webhook has
+ever been processed. The payment path has never run end to end with a real
+card, so treat it as untested rather than working.
+
+**The Android keystore is the only copy that exists.** Google Play App Signing
+was never enabled, so that one file is the sole means of updating the Play
+listing, ever. Losing it means a new listing under a new package name, with
+every install and review gone.
 
 **`.gitignore` excludes the internal documents** — audit, client messages,
 scope, tracker, pricing. **The repository is public and the previous contractor
