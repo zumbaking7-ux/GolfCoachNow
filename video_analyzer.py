@@ -4,6 +4,7 @@ import subprocess
 import json
 import hashlib
 import random
+import time
 
 from wedge import CORRECTIONS as WEDGE_CORRECTIONS
 from putt import CORRECTIONS as PUTT_CORRECTIONS
@@ -194,6 +195,17 @@ def _to_python_floats(scores):
 
 MIN_POSE_FRAMES = 5
 
+# How far apart to sample when the file will not say how many frames it has.
+# Every fifth frame covers roughly three seconds of a thirty-per-second
+# recording within the twenty-frame cap, which is enough of a swing to read.
+UNKNOWN_LENGTH_STEP = 5
+
+# A wall-clock ceiling on pose extraction. This host shares a CPU and the
+# request has to come back; a partial read that answers is worth more than a
+# complete one that never does. Whatever has been gathered by this point is
+# what gets scored, and MIN_POSE_FRAMES still decides whether it was enough.
+POSE_TIME_BUDGET_SECONDS = 25
+
 
 def require_a_person(file_path):
     """Raise unless a person is visibly present in the clip.
@@ -241,7 +253,13 @@ def _extract_pose_landmarks(file_path, max_frames=20):
         raise VideoAnalysisError("Could not open video file")
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    step = max(1, total // max_frames)
+
+    # A phone recording often reports no frame count at all - the container is
+    # written without an index - and `total // max_frames` is then 0, so every
+    # frame gets analysed instead of twenty. On a shared CPU that turned a
+    # fifteen second clip into several hundred pose detections and a request
+    # that never came back.
+    step = max(1, total // max_frames) if total > 0 else UNKNOWN_LENGTH_STEP
 
     options = mp_vision.PoseLandmarkerOptions(
         base_options=mp_tasks.BaseOptions(model_asset_path=POSE_MODEL_PATH),
@@ -253,9 +271,19 @@ def _extract_pose_landmarks(file_path, max_frames=20):
 
     results = []
     idx = 0
+    analysed = 0
+    started = time.monotonic()
     try:
         with mp_vision.PoseLandmarker.create_from_options(options) as landmarker:
             while cap.isOpened():
+                # Two hard stops, because the sampling arithmetic above depends
+                # on metadata the file is not obliged to carry. Neither of these
+                # relies on it being right.
+                if analysed >= max_frames:
+                    break
+                if time.monotonic() - started > POSE_TIME_BUDGET_SECONDS:
+                    break
+
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -267,6 +295,7 @@ def _extract_pose_landmarks(file_path, max_frames=20):
                     # same clip always analyses identically.
                     timestamp_ms = int(idx * 1000 / fps)
                     out = landmarker.detect_for_video(image, timestamp_ms)
+                    analysed += 1
                     if out.pose_landmarks:
                         lm = [(l.x, l.y, l.z) for l in out.pose_landmarks[0]]
                         results.append({"idx": idx, "t": idx / fps, "lm": lm})

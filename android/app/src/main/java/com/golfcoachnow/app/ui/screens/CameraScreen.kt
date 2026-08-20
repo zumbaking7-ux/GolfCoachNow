@@ -265,9 +265,13 @@ fun CameraScreen(
                         correctionVideoUrl = null
                         statusText = "Recording..."
                         isRecording = true
-                        repCount++
 
-                        val file = File(context.cacheDir, "golf_rep_$repCount.mp4")
+                        // Counted on a completed analysis, not on pressing
+                        // record. Showing "Rep: 1" for an attempt that came
+                        // back with nothing tells the golfer they used one
+                        // when they did not - and the server only charges an
+                        // allowance once there is coaching to show.
+                        val file = File(context.cacheDir, "golf_rep_${repCount + 1}.mp4")
                         val outputOptions = FileOutputOptions.Builder(file).build()
 
                         val vc = videoCapture ?: return@IconButton
@@ -290,6 +294,7 @@ fun CameraScreen(
                                                     deviceId = EntitlementManager.deviceId,
                                                 )
                                                 result.onSuccess { resp ->
+                                                    if (resp.status != "no_swing_detected") repCount++
                                                     correction = resp
                                                     correctionVideoUrl =
                                                         resp.correctionVideoUrl?.takeIf { it.isNotBlank() }

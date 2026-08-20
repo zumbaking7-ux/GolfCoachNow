@@ -357,3 +357,121 @@ def test_available_when_the_api_and_the_model_are_both_there(monkeypatch, tmp_pa
 
     assert video_analyzer._ensure_mp() is True
     monkeypatch.setattr(video_analyzer, "mp", None)
+
+
+# --- Sampling must not depend on metadata the file need not carry ----------
+
+
+class _FakeCapture:
+    """A video that reports no frame count, the way phone recordings often do."""
+
+    def __init__(self, frames, reports_total):
+        self._frames = frames
+        self._reports_total = reports_total
+        self._read = 0
+
+    def isOpened(self):
+        return True
+
+    def get(self, prop):
+        # 7 is CAP_PROP_FRAME_COUNT, 5 is CAP_PROP_FPS.
+        if prop == 7:
+            return self._reports_total
+        if prop == 5:
+            return 30.0
+        return 0
+
+    def read(self):
+        if self._read >= self._frames:
+            return False, None
+        self._read += 1
+        return True, object()
+
+    def release(self):
+        pass
+
+
+def _stub_pose(monkeypatch, capture, detections):
+    """Wire the analyser to a fake camera and a counting landmarker."""
+    import types
+
+    monkeypatch.setattr(video_analyzer, "cv2", types.SimpleNamespace(
+        VideoCapture=lambda _: capture,
+        CAP_PROP_FRAME_COUNT=7,
+        CAP_PROP_FPS=5,
+        cvtColor=lambda frame, code: frame,
+        COLOR_BGR2RGB=4,
+    ))
+    monkeypatch.setattr(video_analyzer, "mp", types.SimpleNamespace(
+        Image=lambda **kw: object(),
+        ImageFormat=types.SimpleNamespace(SRGB=1),
+    ))
+
+    class _Landmarker:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def detect_for_video(self, image, ts):
+            detections.append(ts)
+            return types.SimpleNamespace(pose_landmarks=[])
+
+    monkeypatch.setattr(video_analyzer, "mp_tasks", types.SimpleNamespace(
+        BaseOptions=lambda **kw: None))
+    monkeypatch.setattr(video_analyzer, "mp_vision", types.SimpleNamespace(
+        PoseLandmarkerOptions=lambda **kw: None,
+        RunningMode=types.SimpleNamespace(VIDEO=1),
+        PoseLandmarker=types.SimpleNamespace(create_from_options=lambda o: _Landmarker()),
+    ))
+
+
+def test_a_file_with_no_frame_count_does_not_analyse_every_frame(monkeypatch):
+    """The bug that hung a live upload for ten minutes.
+
+    A phone recording often reports zero frames, because the container carries
+    no index. The old arithmetic turned that into a step of one and ran pose
+    detection on all 450 frames of a fifteen second clip. On a shared CPU the
+    request never came back.
+    """
+    detections = []
+    _stub_pose(monkeypatch, _FakeCapture(frames=450, reports_total=0), detections)
+
+    video_analyzer._extract_pose_landmarks("ignored.mp4", max_frames=20)
+
+    assert len(detections) <= 20, "analysed %d frames, cap is 20" % len(detections)
+
+
+def test_the_cap_holds_even_when_the_frame_count_lies(monkeypatch):
+    """Metadata can be wrong as easily as absent."""
+    detections = []
+    _stub_pose(monkeypatch, _FakeCapture(frames=900, reports_total=10), detections)
+
+    video_analyzer._extract_pose_landmarks("ignored.mp4", max_frames=20)
+
+    assert len(detections) <= 20
+
+
+def test_a_normal_recording_still_samples_across_the_whole_clip(monkeypatch):
+    """The fix must not cost analysis quality on a well-formed file."""
+    detections = []
+    _stub_pose(monkeypatch, _FakeCapture(frames=450, reports_total=450), detections)
+
+    video_analyzer._extract_pose_landmarks("ignored.mp4", max_frames=20)
+
+    assert len(detections) == 20
+    # Spread across the clip rather than bunched at the start: the last sample
+    # should be near the end, which is where the follow through is.
+    assert detections[-1] > detections[0] * 15
+
+
+def test_extraction_gives_up_rather_than_hanging(monkeypatch):
+    """A partial read that answers beats a complete one that never does."""
+    detections = []
+    _stub_pose(monkeypatch, _FakeCapture(frames=10_000, reports_total=10_000), detections)
+    monkeypatch.setattr(video_analyzer, "POSE_TIME_BUDGET_SECONDS", -1)
+
+    video_analyzer._extract_pose_landmarks("ignored.mp4", max_frames=5000)
+
+    assert detections == [], "the budget should stop it before any work"

@@ -11,6 +11,10 @@ data class CorrectionResponse(
     // Null until the asset for this fault is published. The written correction
     // above is always present, so a missing clip costs polish, not coaching.
     @SerialName("correction_video_url") val correctionVideoUrl: String? = null,
+    // "ok" for a scored rep, "no_swing_detected" when the clip could not be
+    // read. The server has always sent this; the app needs it to tell a rep
+    // that counted from one that did not.
+    val status: String = "",
 )
 
 @Serializable
