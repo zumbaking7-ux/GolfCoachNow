@@ -56,6 +56,7 @@ client_message_*.md
 client_reply_*.md
 handoff_request_*.md
 reply_to_*.md
+scope_*.md
 V2_DIRECTIVES.md
 GolfCoachNow_*.docx
 GolfCoachNow_*.xlsx
