@@ -116,8 +116,8 @@ def analyze_video(file_path, module="swing"):
             "That recording didn't come through properly. Please try recording again."
         )
 
-    if module == "swing":
-        if _ensure_mp():
+    if _ensure_mp():
+        if module == "swing":
             try:
                 return _to_python_floats(_analyze_with_pose(file_path))
             except NoSwingDetected:
@@ -127,14 +127,24 @@ def analyze_video(file_path, module="swing"):
                 raise
             except Exception:
                 pass
+        else:
+            # Putt and short game have no pose scorer of their own yet - the
+            # one above measures a full swing and names swing faults, which do
+            # not exist in their correction sets.
+            #
+            # The presence check still runs for them, because "is there a
+            # person in this video at all" is the question that stops a clip of
+            # something else being coached, and it is worth answering whichever
+            # engine was asked for.
+            require_a_person(file_path)
 
-        if _ensure_cv():
-            try:
-                return _to_python_floats(_analyze_with_motion(file_path))
-            except NoSwingDetected:
-                raise
-            except Exception:
-                pass
+    if module == "swing" and _ensure_cv():
+        try:
+            return _to_python_floats(_analyze_with_motion(file_path))
+        except NoSwingDetected:
+            raise
+        except Exception:
+            pass
 
     return _analyze_with_metadata(file_path, module)
 
@@ -147,12 +157,32 @@ def _to_python_floats(scores):
 #  TIER 1: MediaPipe Pose (full skeleton tracking)
 # ======================================================================
 
+MIN_POSE_FRAMES = 5
+
+
+def require_a_person(file_path):
+    """Raise unless a person is visibly present in the clip.
+
+    The cheapest honest question the system can ask. It does not know what a
+    golf swing looks like - that is still ahead - but it does know the
+    difference between somebody standing in front of a camera and a video of
+    something else entirely, and that alone is what stops a clip of the kitchen
+    coming back with confident coaching.
+
+    Failing to detect is treated as a finding, not an error. Anything that goes
+    wrong inside MediaPipe is not, because a broken library should not tell a
+    golfer their swing was unreadable.
+    """
+    seq = _extract_pose_landmarks(file_path, max_frames=20)
+    if len(seq) < MIN_POSE_FRAMES:
+        raise NoSwingDetected("We couldn't see anyone in that clip. " + _FRAMING_ADVICE)
+
+
 def _analyze_with_pose(file_path):
     seq = _extract_pose_landmarks(file_path, max_frames=20)
-    if len(seq) < 5:
-        # MediaPipe looked at every sampled frame and could not find a person
-        # in enough of them. That is the clearest "there is no swing here"
-        # signal the system has.
+    if len(seq) < MIN_POSE_FRAMES:
+        # Same finding as require_a_person, reached on the swing path. Kept
+        # here rather than delegating so the landmarks are extracted once.
         raise NoSwingDetected("We couldn't see anyone in that clip. " + _FRAMING_ADVICE)
     phases = _detect_phases(seq)
     scores = _score_pose_faults(seq, phases)

@@ -199,3 +199,90 @@ def test_a_short_clip_is_rejected_only_when_ffprobe_measured_it(monkeypatch, tmp
         lambda _: {"duration": 0.0, "width": 0, "height": 0, "file_size": 50_000, "probed": False},
     )
     assert video_analyzer.analyze_video(str(clip), module="swing")
+
+
+# --- The presence check, which runs for every mode -------------------------
+
+
+def _plausible(tmp_path):
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(os.urandom(video_analyzer.MIN_FILE_BYTES + 1))
+    return str(clip)
+
+
+@pytest.fixture
+def pose_available(monkeypatch):
+    """Pretend MediaPipe is installed, without installing it.
+
+    The production server has it; this machine does not. Pinning it here means
+    these rules are tested wherever the suite runs rather than only where the
+    library happens to be present.
+    """
+    monkeypatch.setattr(video_analyzer, "_ensure_mp", lambda: True)
+
+
+def _pose_finds(monkeypatch, frames):
+    monkeypatch.setattr(
+        video_analyzer,
+        "_extract_pose_landmarks",
+        lambda *a, **k: [{"idx": i, "t": i / 30.0, "lm": []} for i in range(frames)],
+    )
+
+
+@pytest.mark.parametrize("module", ["putt", "short_game"])
+def test_no_person_is_refused_for_putt_and_short_game_too(
+    monkeypatch, tmp_path, pose_available, readable_clip, module
+):
+    """The gap that let a video of something else be coached.
+
+    Putt and short game have no pose scorer, so before this they skipped
+    straight to metadata scoring and would confidently coach anything at all.
+    """
+    _pose_finds(monkeypatch, 0)
+
+    with pytest.raises(video_analyzer.NoSwingDetected):
+        video_analyzer.analyze_video(_plausible(tmp_path), module=module)
+
+
+@pytest.mark.parametrize("module", ["putt", "short_game"])
+def test_a_person_present_still_reaches_scoring(
+    monkeypatch, tmp_path, pose_available, readable_clip, module
+):
+    """The check gates, it does not replace the engine.
+
+    Putt and short game keep their own scoring; the pose pass only decides
+    whether there is anybody there to score.
+    """
+    _pose_finds(monkeypatch, 20)
+
+    assert video_analyzer.analyze_video(_plausible(tmp_path), module=module)
+
+
+def test_putt_never_comes_back_with_swing_vocabulary(
+    monkeypatch, tmp_path, pose_available, readable_clip
+):
+    """Why the pose scorer is not simply run for every mode.
+
+    It measures a full swing and names swing faults, none of which exist in
+    the putt correction set. Running it for putt would produce faults with no
+    correction attached.
+    """
+    import putt as putt_engine
+
+    _pose_finds(monkeypatch, 20)
+    scores = video_analyzer.analyze_video(_plausible(tmp_path), module="putt")
+
+    assert set(scores) <= set(putt_engine.CORRECTIONS)
+
+
+def test_a_broken_library_does_not_accuse_the_golfer(
+    monkeypatch, tmp_path, pose_available, readable_clip
+):
+    """MediaPipe failing is our problem, not a verdict on their recording."""
+    def explode(*a, **k):
+        raise RuntimeError("mediapipe fell over")
+
+    monkeypatch.setattr(video_analyzer, "_extract_pose_landmarks", explode)
+
+    with pytest.raises(RuntimeError):
+        video_analyzer.require_a_person(_plausible(tmp_path))
