@@ -58,3 +58,6 @@ handoff_request_*.md
 GolfCoachNow_*.docx
 GolfCoachNow_*.xlsx
 GolfCoachNow_*.pdf
+
+# MediaPipe model weights. Downloaded per environment, not committed.
+*.task
