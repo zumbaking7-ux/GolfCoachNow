@@ -137,10 +137,14 @@ device.** The fallback is a real state, not a gap: the launch allowance lets a
 stranger take one rep before signing in. It resets at **UTC midnight**, not in
 the golfer's own timezone.
 
-**Analysis requires an account, with one rep of grace.**  sets how
-many; it is 1 for the launch window and  closes it without a release. The
-gate answers **401**; the daily limit answers **403**. All three apps pick a
-screen from that difference, so do not collapse them.
+**Analysis requires an account, with one rep of grace.** `UNGATED_REPS` sets
+how many; it is 1 for the launch window, and `0` closes it without a release.
+The gate answers **401**; the daily limit answers **403**. All three apps pick
+a screen from that difference, so do not collapse them.
+
+The allowance is counted across all modes over all time, not per mode per day,
+and it is keyed to the device id — a value the caller supplies. Deliberately
+weak: it buys a first impression, it is not a paywall.
 
 **`/upload` takes `module` and `device_id` as query parameters, not form
 fields.** Not a style choice: the ASGI-to-WSGI bridge does not parse non-file
