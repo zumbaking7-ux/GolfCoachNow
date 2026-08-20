@@ -114,6 +114,7 @@ fun AppNavHost() {
                 module = module,
                 onBack = { navController.popBackStack() },
                 onPaywall = { navController.navigate(Routes.PAYWALL) },
+                onSignIn = { navController.navigate(Routes.LOGIN) },
             )
         }
 

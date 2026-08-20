@@ -33,14 +33,17 @@ def client():
 # --- Instructional clips -------------------------------------------------
 
 
-def test_every_module_resolves_to_the_shared_instructional_clip(hosted):
-    """Version 1 ships one instructional clip for all three modes.
+def test_swing_has_its_own_lesson_and_the_others_share_one(hosted):
+    """Swing got a lesson filmed for it; the other two keep the generic clip.
 
-    The mapping is still per-module, so pointing swing at its own clip later
-    changes this file and nothing else.
+    This is the change the mapping was built to allow, and it stayed a change
+    to this one file, which is the point of resolving every url in one place.
     """
+    assert video_library.instructional_url("swing") == (
+        f"{CDN}/instructional/learn_swing.mp4"
+    )
+
     shared = f"{CDN}/instructional/all_modes.mp4"
-    assert video_library.instructional_url("swing") == shared
     assert video_library.instructional_url("putt") == shared
     assert video_library.instructional_url("short_game") == shared
 

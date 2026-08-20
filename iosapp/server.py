@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -23,7 +23,10 @@ try:
     from payments.contact_routes import router as contact_router
     from payments.db import get_session
     from payments.entitlement import check_entitlement, record_usage
-    from payments.models import AnalyticsEvent, RepResult
+    from payments.accounts import user_for_token
+    from payments.auth_routes import bearer_token
+    from payments.config import settings as payment_settings
+    from payments.models import AnalyticsEvent, DailyUsage, RepResult
     from sqlalchemy.orm import Session
     from sqlalchemy import func, select
     _has_payments = True
@@ -154,6 +157,49 @@ def _save_result(device_id: str, module: str, result: dict):
         db.close()
 
 
+def _reps_ever(db, device_id: str) -> int:
+    """How many reps this device has completed, over all time and all modules.
+
+    Deliberately not "today". The un-gated allowance is a first impression,
+    and one free rep a day forever is a different, much weaker thing.
+    """
+    total = db.scalar(
+        select(func.coalesce(func.sum(DailyUsage.rep_count), 0))
+        .where(DailyUsage.device_id == device_id)
+    )
+    return int(total or 0)
+
+
+def _require_access(request, device_id: str) -> None:
+    """Refuse the analysis path to strangers, with a little grace.
+
+    401 rather than 403, because the daily limit already uses 403. The two mean
+    different things to the golfer - "sign in" against "subscribe" - and the
+    apps have to be able to tell them apart without reading the message.
+    """
+    if not _has_payments:
+        return
+
+    db = next(get_session())
+    try:
+        if user_for_token(db, bearer_token(request)) is not None:
+            return
+
+        allowance = payment_settings.ungated_reps
+        if allowance > 0 and device_id and _reps_ever(db, device_id) < allowance:
+            return
+
+        raise HTTPException(
+            401,
+            {
+                "error": "sign_in_required",
+                "message": "Sign in to keep analysing your swing.",
+            },
+        )
+    finally:
+        db.close()
+
+
 def _check_allowance(device_id: str, module: str):
     """Gate on the daily limit without spending a rep.
 
@@ -236,12 +282,15 @@ def _check_and_record(device_id: str, module: str):
 
 @app.post("/upload")
 async def upload_video(
+    request: Request,
     file: UploadFile = File(...),
     module: str = "swing",
     device_id: str = "",
 ):
     if module not in VALID_MODULES:
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
+
+    _require_access(request, device_id)
 
     # Checked, not spent. The rep is recorded further down, once we know there
     # was actually a swing in the clip.
@@ -286,7 +335,8 @@ async def upload_video(
 
 
 @app.post("/wedge")
-def run_wedge(swing: SwingData):
+def run_wedge(request: Request, swing: SwingData):
+    _require_access(request, swing.device_id)
     _check_and_record(swing.device_id, "swing")
     result = wedge_process(swing.data)
     _save_result(swing.device_id, "swing", result)
@@ -294,7 +344,8 @@ def run_wedge(swing: SwingData):
 
 
 @app.post("/putt")
-def run_putt(swing: SwingData):
+def run_putt(request: Request, swing: SwingData):
+    _require_access(request, swing.device_id)
     _check_and_record(swing.device_id, "putt")
     result = putt_process(swing.data)
     _save_result(swing.device_id, "putt", result)
@@ -302,7 +353,8 @@ def run_putt(swing: SwingData):
 
 
 @app.post("/short-game")
-def run_short_game(swing: SwingData):
+def run_short_game(request: Request, swing: SwingData):
+    _require_access(request, swing.device_id)
     _check_and_record(swing.device_id, "short_game")
     result = chip_process(swing.data)
     _save_result(swing.device_id, "short_game", result)
@@ -310,9 +362,12 @@ def run_short_game(swing: SwingData):
 
 
 @app.post("/talk")
-def talk_mode(req: TalkRequest):
+def talk_mode(request: Request, req: TalkRequest):
     if req.module not in VALID_MODULES:
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
+    # Gated like the rest. This adds a check in front of the engine; it does not
+    # touch the engine, which is unchanged and still reachable once signed in.
+    _require_access(request, req.device_id)
     _check_and_record(req.device_id, req.module)
     return process_talk(req.text, req.module)
 

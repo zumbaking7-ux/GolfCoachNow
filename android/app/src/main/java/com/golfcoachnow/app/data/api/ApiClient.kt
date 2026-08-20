@@ -2,6 +2,7 @@ package com.golfcoachnow.app.data.api
 
 import com.golfcoachnow.app.BuildConfig
 import com.golfcoachnow.app.data.model.*
+import com.golfcoachnow.app.util.AuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -70,6 +71,9 @@ object ApiClient {
             val request = Request.Builder()
                 .url("$baseUrl/upload?module=${module.uploadParam}&device_id=$deviceId")
                 .post(body)
+                .apply {
+                    AuthManager.token?.let { addHeader("Authorization", "Bearer $it") }
+                }
                 .build()
 
             val response = client.newCall(request).execute()

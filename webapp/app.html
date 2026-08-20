@@ -434,6 +434,10 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
+function authHeaders() {
+  return authToken ? {'Authorization': 'Bearer ' + authToken} : {};
+}
+
 function goHome() { stopCameraStream(); showScreen('home'); }
 
 function toast(msg) {
@@ -893,7 +897,18 @@ async function uploadVideo() {
   const form = new FormData();
   form.append('file', blob, 'rep.' + ext);
   try {
-    const res = await fetch(API + '/upload?module=' + currentModule + '&device_id=' + deviceId, {method:'POST', body:form});
+    const res = await fetch(
+      API + '/upload?module=' + currentModule + '&device_id=' + deviceId,
+      {method:'POST', body:form, headers: authHeaders()}
+    );
+    if (res.status === 401) {
+      // A stranger past their one free rep. Not a paywall: they are being
+      // asked who they are, not asked to pay, and the two screens differ.
+      document.getElementById('cam-status').style.display = '';
+      document.getElementById('cam-status').textContent = 'Sign in to keep analysing your swing.';
+      setTimeout(() => { stopCameraStream(); showScreen('login'); }, 1400);
+      return;
+    }
     if (res.status === 403) {
       document.getElementById('cam-status').textContent = 'Free reps used today. Subscribe for unlimited.';
       setTimeout(() => showScreen('paywall'), 1500);
@@ -940,7 +955,18 @@ async function handleFileUpload(event) {
   const form = new FormData();
   form.append('file', file, 'rep.' + ext);
   try {
-    const res = await fetch(API + '/upload?module=' + currentModule + '&device_id=' + deviceId, {method:'POST', body:form});
+    const res = await fetch(
+      API + '/upload?module=' + currentModule + '&device_id=' + deviceId,
+      {method:'POST', body:form, headers: authHeaders()}
+    );
+    if (res.status === 401) {
+      // A stranger past their one free rep. Not a paywall: they are being
+      // asked who they are, not asked to pay, and the two screens differ.
+      document.getElementById('cam-status').style.display = '';
+      document.getElementById('cam-status').textContent = 'Sign in to keep analysing your swing.';
+      setTimeout(() => { stopCameraStream(); showScreen('login'); }, 1400);
+      return;
+    }
     if (res.status === 403) {
       document.getElementById('cam-status').textContent = 'Free reps used today. Subscribe for unlimited.';
       setTimeout(() => showScreen('paywall'), 1500);

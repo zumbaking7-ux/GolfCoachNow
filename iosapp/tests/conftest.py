@@ -132,6 +132,23 @@ def client() -> TestClient:
 
 
 @pytest.fixture
+def auth_headers():
+    """A real account and a live token.
+
+    Tests about analysis and the paywall should not be about the sign-in gate,
+    but they should still go through it rather than around it - the header a
+    test sends is the header a phone sends.
+    """
+    from payments.accounts import request_login_code, verify_login_code
+
+    email = "gate-fixture@example.com"
+    with SessionFactory() as session:
+        code = request_login_code(session, email)
+        signed = verify_login_code(session, email, code, "fixture_device", "Tester")
+    return {"Authorization": "Bearer %s" % signed.token}
+
+
+@pytest.fixture
 def db_session():
     with SessionFactory() as session:
         yield session

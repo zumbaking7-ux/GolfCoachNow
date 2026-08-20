@@ -62,11 +62,13 @@ def client():
     return TestClient(server.app)
 
 
-def upload(client, payload, module="swing", device="correction_module_device"):
+def upload(client, payload, module="swing", device="correction_module_device",
+           headers=None):
     return client.post(
         "/upload",
         params={"module": module, "device_id": device},
         files={"file": ("clip.mp4", io.BytesIO(payload), "video/mp4")},
+        headers=headers or {},
     )
 
 
@@ -162,18 +164,23 @@ def test_a_failed_rep_does_not_count_towards_the_paywall(client, hosted):
 # --- Where the two meet ----------------------------------------------------
 
 
-def test_failed_reps_between_good_ones_do_not_advance_the_paywall(client, hosted, readable_clip):
+def test_failed_reps_between_good_ones_do_not_advance_the_paywall(
+    client, hosted, readable_clip, auth_headers
+):
     """The realistic case: somebody films badly, adjusts, films again.
 
     Three good reps should reach the limit no matter how many unreadable
     attempts happen in between.
+
+    Signed in, because this is a second rep: the un-gated allowance covers the
+    first one only, and this test is about rep accounting rather than the gate.
     """
     device = "mixed_reps_device"
 
-    upload(client, PLAUSIBLE_CLIP, device=device)
+    upload(client, PLAUSIBLE_CLIP, device=device, headers=auth_headers)
     for _ in range(4):
-        upload(client, UNREADABLE_CLIP, device=device)
-    upload(client, PLAUSIBLE_CLIP, device=device)
+        upload(client, UNREADABLE_CLIP, device=device, headers=auth_headers)
+    upload(client, PLAUSIBLE_CLIP, device=device, headers=auth_headers)
 
     assert reps_used(device) == 2
 

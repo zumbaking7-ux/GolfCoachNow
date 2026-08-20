@@ -481,6 +481,15 @@ final class CameraViewController: UIViewController {
     private func showError(_ error: Error) {
         statusLabel.text = ""
 
+        // 401 and 403 are different conversations. One asks who the golfer
+        // is; the other asks them to subscribe. Showing the paywall to someone
+        // who has simply never signed in asks them to pay to fix being a
+        // stranger.
+        if case APIError.requestFailed(statusCode: 401) = error {
+            showSignIn()
+            return
+        }
+
         if case APIError.requestFailed(statusCode: 403) = error {
             showPaywall()
             return
@@ -499,6 +508,13 @@ final class CameraViewController: UIViewController {
         let paywall = PaywallViewController()
         paywall.modalPresentationStyle = .fullScreen
         present(paywall, animated: true)
+    }
+
+    private func showSignIn() {
+        statusLabel.text = "Sign in to keep analysing your swing."
+        let login = LoginViewController()
+        login.modalPresentationStyle = .fullScreen
+        present(login, animated: true)
     }
 }
 

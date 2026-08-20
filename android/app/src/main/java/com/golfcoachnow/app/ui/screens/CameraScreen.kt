@@ -53,6 +53,7 @@ fun CameraScreen(
     module: GolfModule,
     onBack: () -> Unit,
     onPaywall: () -> Unit,
+    onSignIn: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -301,7 +302,10 @@ fun CameraScreen(
                                                     statusText = ""
                                                     ApiClient.trackEvent("rep_completed", module)
                                                 }.onFailure { err ->
-                                                    if (err is ApiException && err.code == 403) {
+                                                    if (err is ApiException && err.code == 401) {
+                                                        statusText = "Sign in to keep analysing your swing."
+                                                        onSignIn()
+                                                    } else if (err is ApiException && err.code == 403) {
                                                         onPaywall()
                                                     } else {
                                                         statusText = err.message ?: "Analysis failed"

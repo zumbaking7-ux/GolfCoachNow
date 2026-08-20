@@ -65,6 +65,20 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 60
 
+    # --- The un-gated allowance -----------------------------------------
+    # How many reps a device may complete before it has to sign in. Exists for
+    # the launch window: a journalist handed a link should see the product work
+    # before being asked for anything.
+    #
+    # Keyed to the device id, which is a value the caller supplies, so it is
+    # deliberately weak. It buys a first impression; it is not a paywall, and
+    # it is not meant to outlive the press coverage.
+    #
+    # Set UNGATED_REPS=0 to close it. That is an environment change and a
+    # reload, not a release across three app stores, which is the whole reason
+    # it is configuration rather than a code path.
+    ungated_reps: int = 1
+
     # --- Accounts -------------------------------------------------------
     # How login codes are delivered. "console" writes the code to the log and
     # sends nothing, which is for local work only. Production must set a real
