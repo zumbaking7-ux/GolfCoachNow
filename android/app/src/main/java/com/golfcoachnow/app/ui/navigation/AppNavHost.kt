@@ -31,8 +31,11 @@ fun AppNavHost() {
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
-                onModuleSelected = { module ->
-                    navController.navigate(Routes.video(module))
+                onLearn = {
+                    navController.navigate(Routes.video(GolfModule.SWING))
+                },
+                onCorrect = {
+                    navController.navigate(Routes.camera(GolfModule.SWING))
                 },
                 onLogin = {
                     navController.navigate(Routes.LOGIN)
@@ -55,14 +58,7 @@ fun AppNavHost() {
             val module = GolfModule.valueOf(moduleName)
             InstructionalVideoScreen(
                 module = module,
-                onFinished = {
-                    // Replace the video in the back stack rather than stacking on
-                    // top of it, so backing out of the camera returns home instead
-                    // of replaying the clip the golfer just watched.
-                    navController.navigate(Routes.camera(module)) {
-                        popUpTo(Routes.VIDEO) { inclusive = true }
-                    }
-                },
+                onFinished = { navController.popBackStack() },
             )
         }
 

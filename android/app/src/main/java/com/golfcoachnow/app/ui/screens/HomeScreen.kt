@@ -49,7 +49,8 @@ import java.util.Calendar
 
 @Composable
 fun HomeScreen(
-    onModuleSelected: (GolfModule) -> Unit,
+    onLearn: () -> Unit,
+    onCorrect: () -> Unit,
     onLogin: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
@@ -185,17 +186,28 @@ fun HomeScreen(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            GolfModule.entries.forEach { module ->
-                SkillCard(
-                    module = module,
-                    iconRes = module.toIconRes(),
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        ApiClient.trackEvent("module_selected", module)
-                        onModuleSelected(module)
-                    },
-                )
-            }
+            SkillCard(
+                title = "SWING LEARN",
+                description = "Watch how it's done. Grip, stance and swing.",
+                ctaLabel = "WATCH →",
+                iconRes = R.drawable.ic_swing,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    ApiClient.trackEvent("module_selected", GolfModule.SWING)
+                    onLearn()
+                },
+            )
+            SkillCard(
+                title = "SWING CORRECT",
+                description = "Record your swing. Get instant feedback.",
+                ctaLabel = "START →",
+                iconRes = R.drawable.ic_swing,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    ApiClient.trackEvent("module_selected", GolfModule.SWING)
+                    onCorrect()
+                },
+            )
         }
 
         // Action row. Connect sits on the left and Share on the right, and the
@@ -227,7 +239,9 @@ fun HomeScreen(
 
 @Composable
 private fun SkillCard(
-    module: GolfModule,
+    title: String,
+    description: String,
+    ctaLabel: String,
     iconRes: Int,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -244,7 +258,7 @@ private fun SkillCard(
     ) {
         Image(
             painter = painterResource(id = iconRes),
-            contentDescription = module.title,
+            contentDescription = title,
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp)),
@@ -252,16 +266,16 @@ private fun SkillCard(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = module.title.uppercase(),
-            fontSize = 12.sp,
+            text = title,
+            fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Color.White,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            text = module.cardDescription,
-            fontSize = 10.sp,
+            text = description,
+            fontSize = 11.sp,
             color = TextMuted,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -286,8 +300,8 @@ private fun SkillCard(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "START ${module.title.uppercase()} →",
-                fontSize = if (module == GolfModule.SHORT_GAME) 8.sp else 10.sp,
+                text = ctaLabel,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.Black,
                 maxLines = 1,
@@ -346,12 +360,6 @@ private fun ActionCard(
             contentScale = ContentScale.Fit,
         )
     }
-}
-
-private fun GolfModule.toIconRes(): Int = when (this) {
-    GolfModule.SWING -> R.drawable.ic_swing
-    GolfModule.PUTT -> R.drawable.ic_putt
-    GolfModule.SHORT_GAME -> R.drawable.ic_short_game
 }
 
 private fun timeGreeting(): String {

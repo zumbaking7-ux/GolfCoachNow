@@ -105,9 +105,8 @@ final class PaywallViewController: UIViewController {
 
     private let features: [(icon: String, text: String)] = [
         ("figure.golf", "Swing Analysis — 20 fault corrections"),
-        ("target", "Putt Analysis — stroke and speed control"),
-        ("flag.fill", "Short Game — chipping and pitching"),
         ("infinity", "Unlimited reps per day"),
+        ("play.rectangle.fill", "A correction video with every session"),
         ("square.and.arrow.up", "Share results with your coach"),
     ]
 

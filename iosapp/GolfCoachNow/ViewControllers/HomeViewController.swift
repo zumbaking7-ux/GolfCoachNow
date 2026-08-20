@@ -229,13 +229,29 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     // MARK: - Skill Cards
 
     private func setupSkillCards() {
-        for module in GolfModule.allCases {
-            let card = makeSkillCard(module)
-            skillStack.addArrangedSubview(card)
-        }
+        skillStack.addArrangedSubview(makeSkillCard(
+            title: "SWING LEARN",
+            description: "Watch how it's done. Grip, stance and swing.",
+            ctaTitle: "WATCH  →",
+            iconAsset: GolfModule.swing.cardIconAsset,
+            action: #selector(learnTapped(_:))
+        ))
+        skillStack.addArrangedSubview(makeSkillCard(
+            title: "SWING CORRECT",
+            description: "Record your swing. Get instant feedback.",
+            ctaTitle: "START  →",
+            iconAsset: GolfModule.swing.cardIconAsset,
+            action: #selector(correctTapped(_:))
+        ))
     }
 
-    private func makeSkillCard(_ module: GolfModule) -> UIView {
+    private func makeSkillCard(
+        title: String,
+        description: String,
+        ctaTitle: String,
+        iconAsset: String,
+        action: Selector
+    ) -> UIView {
         let card = UIView()
         card.translatesAutoresizingMaskIntoConstraints = false
         card.backgroundColor = Theme.cardBackground
@@ -245,27 +261,26 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
 
         let iconContainer = UIImageView()
         iconContainer.translatesAutoresizingMaskIntoConstraints = false
-        iconContainer.image = UIImage(named: module.cardIconAsset)
+        iconContainer.image = UIImage(named: iconAsset)
         iconContainer.contentMode = .scaleAspectFill
         iconContainer.clipsToBounds = true
         iconContainer.layer.cornerRadius = Theme.iconBoxRadius
 
         let titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = module.title.uppercased()
-        titleLabel.font = .systemFont(ofSize: 12, weight: .heavy)
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 13, weight: .heavy)
         titleLabel.textColor = Theme.textPrimary
         titleLabel.textAlignment = .center
 
         let descLabel = UILabel()
         descLabel.translatesAutoresizingMaskIntoConstraints = false
-        descLabel.text = module.cardDescription
-        descLabel.font = .systemFont(ofSize: 10, weight: .regular)
+        descLabel.text = description
+        descLabel.font = .systemFont(ofSize: 11, weight: .regular)
         descLabel.textColor = Theme.textMuted
         descLabel.textAlignment = .center
         descLabel.numberOfLines = 2
 
-        let ctaTitle = module == .shortGame ? "START SHORT GAME →" : "START \(module.title.uppercased())  →"
         let ctaContainer = GradientButton(title: ctaTitle)
 
         card.addSubview(iconContainer)
@@ -294,9 +309,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             ctaContainer.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
         ])
 
-        let tap = ModuleTapGesture(target: self, action: #selector(moduleTapped(_:)))
-        tap.module = module
-        card.addGestureRecognizer(tap)
+        card.addGestureRecognizer(UITapGestureRecognizer(target: self, action: action))
         card.isUserInteractionEnabled = true
 
         return card
@@ -391,36 +404,40 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
 
     // MARK: - Actions
 
-    @objc private func moduleTapped(_ gesture: ModuleTapGesture) {
-        guard let module = gesture.module else { return }
+    @objc private func learnTapped(_ gesture: UITapGestureRecognizer) {
+        bounce(gesture.view)
+        APIClient.shared.trackEvent("module_selected", module: .swing)
+        playLesson()
+    }
 
+    @objc private func correctTapped(_ gesture: UITapGestureRecognizer) {
+        bounce(gesture.view)
+        APIClient.shared.trackEvent("module_selected", module: .swing)
+        navigationController?.pushViewController(
+            CameraViewController(module: .swing),
+            animated: true
+        )
+    }
+
+    private func bounce(_ view: UIView?) {
         UIView.animate(withDuration: 0.1, animations: {
-            gesture.view?.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+            view?.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
         }) { _ in
             UIView.animate(withDuration: 0.1) {
-                gesture.view?.transform = .identity
+                view?.transform = .identity
             }
-        }
-
-        APIClient.shared.trackEvent("module_selected", module: module)
-        playInstructionalVideo(for: module) { [weak self] in
-            let cameraVC = CameraViewController(module: module)
-            self?.navigationController?.pushViewController(cameraVC, animated: true)
         }
     }
 
-    /// Plays the instructional clip and then runs `next`.
+    /// Plays the lesson clip behind Swing Learn.
     ///
-    /// `next` runs immediately when there is no clip to play, when the lookup
-    /// fails, or when the url is unusable. The golfer tapped an engine to
-    /// record something, and a coaching clip is never worth blocking that on.
-    private func playInstructionalVideo(for module: GolfModule, then next: @escaping () -> Void) {
-        APIClient.shared.fetchInstructionalVideo(module: module) { [weak self] result in
+    /// Version 1 ships one instructional video, shared across modes. Until it
+    /// is published the lookup returns no url, and the golfer is told that
+    /// plainly: a button that quietly does nothing reads as a broken app.
+    private func playLesson() {
+        APIClient.shared.fetchInstructionalVideo(module: .swing) { [weak self] result in
             DispatchQueue.main.async {
-                guard let self else {
-                    next()
-                    return
-                }
+                guard let self else { return }
 
                 switch result {
                 case .success(let response):
@@ -428,18 +445,28 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
                         let urlString = response.url,
                         let url = URL(string: urlString)
                     else {
-                        next()
+                        self.showLessonUnavailable()
                         return
                     }
                     self.present(
-                        VideoPlayerViewController(url: url, onFinished: next),
+                        VideoPlayerViewController(url: url, onFinished: {}),
                         animated: false
                     )
                 case .failure:
-                    next()
+                    self.showLessonUnavailable()
                 }
             }
         }
+    }
+
+    private func showLessonUnavailable() {
+        let alert = UIAlertController(
+            title: "Lesson coming shortly",
+            message: "The lesson video is on its way. Try Swing Correct in the meantime.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     @objc private func sendTapped() {
@@ -497,10 +524,6 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
         controller.dismiss(animated: true)
     }
-}
-
-private final class ModuleTapGesture: UITapGestureRecognizer {
-    var module: GolfModule?
 }
 
 private final class GradientButton: UIView {

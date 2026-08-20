@@ -33,7 +33,7 @@ body{background:var(--bg)}
 .scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
 
 /* ── Home ── */
-.banner{width:100%;height:160px;object-fit:cover;display:block}
+.banner{width:100%;height:210px;object-fit:cover;display:block}
 .greeting-wrap{margin-top:-20px;padding:0 12px;position:relative;z-index:1}
 .greeting{border-radius:12px;border:1px solid var(--green-border);background:var(--card);
 overflow:hidden;position:relative;box-shadow:0 4px 12px var(--green-glow)}
@@ -49,9 +49,9 @@ overflow:hidden;position:relative;box-shadow:0 4px 12px var(--green-glow)}
 padding:8px 4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;
 box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
 .skill-card:active{transform:scale(.96)}
-.skill-card img{width:40px;height:40px;border-radius:10px;object-fit:cover}
-.skill-card .name{font-size:11px;font-weight:800;margin-top:4px;text-align:center}
-.skill-card .desc{font-size:9px;color:var(--muted);text-align:center;max-height:24px;
+.skill-card img{width:52px;height:52px;border-radius:12px;object-fit:cover}
+.skill-card .name{font-size:13px;font-weight:800;margin-top:6px;text-align:center}
+.skill-card .desc{font-size:11px;color:var(--muted);text-align:center;max-height:30px;
 overflow:hidden;line-height:12px;margin-top:2px}
 .skill-card .cta-btn{width:100%;margin-top:5px;padding:5px 2px;border-radius:7px;
 background:linear-gradient(to bottom,#8fc238,#6b9e24);border:1px solid #618c1f;
@@ -216,6 +216,11 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 
 /* ── Utilities ── */
 .safe-bottom{padding-bottom:max(env(safe-area-inset-bottom),16px)}
+.toast{position:absolute;left:16px;right:16px;bottom:88px;z-index:60;padding:12px 14px;
+  border-radius:10px;border:1px solid var(--green-border);background:rgba(20,20,20,.96);
+  color:var(--white);font-size:13px;line-height:18px;text-align:center;
+  opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
 </style>
 </head>
 <body>
@@ -244,23 +249,17 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
   </div>
 
   <div class="skills-row">
-    <div class="skill-card" onclick="startModule('swing')">
-      <img src="/static/img/ic_swing.png" alt="Swing">
-      <div class="name">SWING</div>
-      <div class="desc">Analyze your swing. Get instant feedback.</div>
-      <div class="cta-btn">START SWING →</div>
+    <div class="skill-card" onclick="startLearn()">
+      <img src="/static/img/ic_swing.png" alt="Swing Learn">
+      <div class="name">SWING LEARN</div>
+      <div class="desc">Watch how it's done. Grip, stance and swing.</div>
+      <div class="cta-btn">WATCH &rarr;</div>
     </div>
-    <div class="skill-card" onclick="startModule('putt')">
-      <img src="/static/img/ic_putt.png" alt="Putt">
-      <div class="name">PUTT</div>
-      <div class="desc">Analyze your putting. Improve your stroke.</div>
-      <div class="cta-btn">START PUTT →</div>
-    </div>
-    <div class="skill-card" onclick="startModule('short_game')">
-      <img src="/static/img/ic_short_game.png" alt="Short Game">
-      <div class="name">SHORT GAME</div>
-      <div class="desc">Chipping, pitching &amp; bunker play.</div>
-      <div class="cta-btn sm">START SHORT GAME →</div>
+    <div class="skill-card" onclick="startCorrect()">
+      <img src="/static/img/ic_swing.png" alt="Swing Correct">
+      <div class="name">SWING CORRECT</div>
+      <div class="desc">Record your swing. Get instant feedback.</div>
+      <div class="cta-btn">START &rarr;</div>
     </div>
   </div>
 
@@ -331,9 +330,9 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 <div class="sub">Train like a pro with unlimited AI coaching</div>
 <div class="feature-box">
   <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>Unlimited swing analysis</span></div>
-  <div class="feature-row"><img src="/static/img/ic_putt.png" alt=""><span>Unlimited putting analysis</span></div>
-  <div class="feature-row"><img src="/static/img/ic_short_game.png" alt=""><span>Unlimited short game analysis</span></div>
-  <div class="feature-row"><img src="/static/img/ic_share.png" alt=""><span>Share corrections</span></div>
+  <div class="feature-row"><img src="/static/img/ic_pulse.png" alt=""><span>Instant AI correction on every swing</span></div>
+  <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>A correction video with every session</span></div>
+  <div class="feature-row"><img src="/static/img/ic_share.png" alt=""><span>Share your corrections</span></div>
 </div>
 <div class="price">$14.99</div>
 <div class="per">per month</div>
@@ -435,6 +434,20 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 function goHome() { stopCameraStream(); showScreen('home'); }
+
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    document.querySelector('.phone-frame').appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
 
 // ── Greeting ──
 function updateGreeting() {
@@ -738,19 +751,22 @@ function playVideo(url, onFinished) {
   });
 }
 
-// Wire one and two: the instructional clip, then the camera.
-async function startModule(module) {
-  currentModule = module;
+// Swing Learn and Swing Correct are two doors onto the same module. Learn
+// plays the lesson and stops; Correct goes straight to the camera. The golfer
+// picked one, so neither leads into the other.
+async function startLearn() {
   let url = null;
   try {
-    const res = await fetch(API + '/videos/instructional?module=' + module);
+    const res = await fetch(API + '/videos/instructional?module=swing');
     if (res.ok) url = (await res.json()).url;
   } catch (e) {
     // Treated as "no video published", which is the same outcome for the user.
   }
-  if (url) playVideo(url, () => openCamera(module));
-  else openCamera(module);
+  if (url) playVideo(url, goHome);
+  else toast('The lesson video is on its way. Try Swing Correct in the meantime.');
 }
+
+function startCorrect() { openCamera('swing'); }
 
 // Wire four: the correction clip, played over the card that is already filled
 // in behind it, so whatever happens the written correction is still there.
