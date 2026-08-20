@@ -188,7 +188,7 @@ fun HomeScreen(
         ) {
             SkillCard(
                 title = "SWING LEARN",
-                description = "See the grip, stance and swing.",
+                description = "Watch the swing demonstration",
                 ctaLabel = "WATCH →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),
@@ -199,7 +199,7 @@ fun HomeScreen(
             )
             SkillCard(
                 title = "SWING CORRECT",
-                description = "Record and get instant feedback.",
+                description = "Learn the fundamentals",
                 ctaLabel = "START →",
                 iconRes = R.drawable.ic_swing_white,
                 modifier = Modifier.weight(1f),

@@ -231,14 +231,14 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     private func setupSkillCards() {
         skillStack.addArrangedSubview(makeSkillCard(
             title: "SWING LEARN",
-            description: "See the grip, stance and swing.",
+            description: "Watch the swing demonstration",
             ctaTitle: "WATCH  →",
             iconAsset: GolfModule.swing.cardIconAsset,
             action: #selector(learnTapped(_:))
         ))
         skillStack.addArrangedSubview(makeSkillCard(
             title: "SWING CORRECT",
-            description: "Record and get instant feedback.",
+            description: "Learn the fundamentals",
             ctaTitle: "START  →",
             iconAsset: "icon_swing_white",
             action: #selector(correctTapped(_:))
