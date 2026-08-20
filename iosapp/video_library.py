@@ -35,8 +35,12 @@ BASE_URL = os.environ.get("VIDEO_BASE_URL", "").rstrip("/")
 # one-line change here, with nothing else in the pipeline or the apps touched.
 _SHARED_INSTRUCTIONAL = "instructional/all_modes.mp4"
 
+# Swing has its own lesson now - a real coach demonstrating grip, stance and
+# the full swing, filmed for this screen. Putt and short game keep the older
+# shared clip; they are not reachable in Version 1, and pointing them at a
+# swing lesson would be worse than pointing them at something generic.
 INSTRUCTIONAL = {
-    "swing": _SHARED_INSTRUCTIONAL,
+    "swing": "instructional/learn_swing.mp4",
     "putt": _SHARED_INSTRUCTIONAL,
     "short_game": _SHARED_INSTRUCTIONAL,
 }

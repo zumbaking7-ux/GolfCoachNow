@@ -1,11 +1,15 @@
 # Publishing the video assets
 
-Four files, 28 MB total. Videos are gitignored — too large for the repository
-and they belong on the host that serves them — so these are uploaded directly
-rather than deployed with the code.
+**Two files, 15 MB total.** Only Swing is reachable in Version 1, so only the
+two clips on that path need to go up. The putt and short game clips stay
+staged locally until those modes come back in Version 2.
 
-Once this is done the whole four-wire pipeline is live: tap an engine, watch the
-instructional clip, record, get a correction video back.
+Videos are gitignored — too large for the repository, and they belong on the
+host that serves them — so these are uploaded directly rather than deployed
+with the code.
+
+Once this is done the pipeline is live end to end: tap Swing Learn and watch
+the lesson, tap Swing Correct and record, get a correction video back.
 
 ---
 
@@ -21,47 +25,42 @@ ls -la /home/golfcoachnow/mysite/static/videos/
 
 ---
 
-## 2. Upload the four files
+## 2. Upload the two files
 
 PythonAnywhere **Files** tab → navigate to
 `/home/golfcoachnow/mysite/static/videos/`
 
 Into `instructional/`:
 
-| File | Size |
-| --- | --- |
-| `all_modes.mp4` | 21.1 MB |
+| File | Size | |
+| --- | --- | --- |
+| `learn_swing.mp4` | 12.4 MB | Victor's lesson, plays on Swing Learn |
 
 Into `correction/`:
 
-| File | Size |
-| --- | --- |
-| `swing_correction.mp4` | 2.4 MB |
-| `putt_correction.mp4` | 2.4 MB |
-| `shortgame_correction.mp4` | 2.1 MB |
+| File | Size | |
+| --- | --- | --- |
+| `swing_correction.mp4` | 2.4 MB | plays after a swing is analysed |
 
 They are on your machine at
 `C:\Users\DELL\Downloads\GolfCoachNow\assets\videos\`.
 
-**The filenames must match exactly**, including `shortgame_correction.mp4` with
-no underscore between "short" and "game" while the instructional folder uses
-`all_modes.mp4` with one. That is not a typo: the correction names came from the
-client's spec and the code matches them literally.
+**The filenames must match exactly.** `video_library.py` resolves them
+literally, so a rename here means a code change too.
 
 ---
 
 ## 3. Check they are actually served
 
 ```
-for f in instructional/all_modes.mp4 correction/swing_correction.mp4 \
-         correction/putt_correction.mp4 correction/shortgame_correction.mp4; do
+for f in instructional/learn_swing.mp4 correction/swing_correction.mp4; do
   printf "%-46s " "$f"
   curl -s -o /dev/null -w "%{http_code}  %{size_download} bytes\n" \
     "https://golfcoachnow.pythonanywhere.com/static/videos/$f"
 done
 ```
 
-All four must return **200**. A 404 means either the filename does not match or
+Both must return **200**. A 404 means either the filename does not match or
 `/static/` is not mapped to that folder — check the Web tab's static files
 mapping before going further.
 

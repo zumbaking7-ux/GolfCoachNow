@@ -37,6 +37,10 @@ JOBS = [
     ("putt_correction.mp4",      "correction/putt_correction.mp4",      26),
     ("shortgame_correction.mp4", "correction/shortgame_correction.mp4", 26),
     ("all_modes.mp4",            "instructional/all_modes.mp4",         28),
+    # Victor's lesson for Swing Learn. A real person demonstrating grip and
+    # stance, so it gets a lower CRF than the others: the detail people are
+    # meant to copy is exactly what heavy compression destroys.
+    ("learn_swing.mp4",           "instructional/learn_swing.mp4",        26),
 ]
 
 
