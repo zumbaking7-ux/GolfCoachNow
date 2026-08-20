@@ -203,10 +203,11 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     }
 
     private func updateGreeting() {
-        // The name comes from the account. "there" is the fallback for anyone
-        // signed out, or signed in before names were captured.
+        // The name comes from the account. Anyone signed out, or signed in
+        // before names were captured, is greeted as a golfer rather than with
+        // "Welcome, ." on an empty name.
         let stored = AuthManager.shared.name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = (stored?.isEmpty == false) ? stored! : "there"
+        let named = (stored?.isEmpty == false) ? stored : nil
 
         let bold: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 24, weight: .bold),
@@ -214,9 +215,9 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         ]
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: "Hi ", attributes: bold))
+        text.append(NSAttributedString(string: named != nil ? "Welcome, " : "Hi ", attributes: bold))
         text.append(NSAttributedString(
-            string: name,
+            string: named ?? "Golfer",
             attributes: [
                 .font: UIFont.systemFont(ofSize: 24, weight: .bold),
                 .foregroundColor: Theme.green

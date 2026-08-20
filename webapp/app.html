@@ -143,7 +143,8 @@ font-size:13px;font-weight:700}
 .share-btn img{width:16px;height:16px}
 
 /* ── Account Row ── */
-.account-row{display:flex;justify-content:flex-end;align-items:center;padding:6px 12px 0;gap:8px}
+.account-row{display:flex;justify-content:flex-end;align-items:center;
+padding:max(env(safe-area-inset-top),12px) 16px 0;gap:8px}
 .account-row #account-info{flex:1;font-size:11px;color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .account-btn{background:none;border:1px solid var(--green-border);border-radius:8px;color:var(--green);
 font-size:12px;font-weight:700;padding:4px 12px;cursor:pointer}
@@ -241,7 +242,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="inner">
         <div class="bar"></div>
         <div>
-          <h2 id="greeting-text">Hi <span>there</span>.</h2>
+          <h2 id="greeting-text">Hi <span>Golfer</span>.</h2>
           <p>What would you like<br>to learn today?</p>
         </div>
       </div>
@@ -454,11 +455,15 @@ function updateGreeting() {
   // The name comes from the account, never from the email address. Deriving it
   // from the address greeted waleflutter@gmail.com as "waleflutter", which is
   // worse than not personalising at all.
-  const name = (authName || '').trim() || 'there';
+  const name = (authName || '').trim();
   const safe = name.replace(/[&<>"]/g, c => (
     {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]
   ));
-  document.getElementById('greeting-text').innerHTML = 'Hi <span>' + safe + '</span>.';
+  // Signed in and named gets a welcome; everyone else is a golfer. A signed in
+  // account with no name yet falls to the greeting rather than to "Welcome, ."
+  document.getElementById('greeting-text').innerHTML = (authToken && safe)
+    ? 'Welcome, <span>' + safe + '</span>.'
+    : 'Hi <span>Golfer</span>.';
 }
 updateGreeting();
 

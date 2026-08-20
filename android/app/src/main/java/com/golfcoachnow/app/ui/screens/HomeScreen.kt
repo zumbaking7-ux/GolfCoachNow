@@ -151,18 +151,15 @@ fun HomeScreen(
                     Column {
                         Text(
                             text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
-                                    append("Hi ")
-                                }
-                                withStyle(SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)) {
-                                    // From the account, never derived from the
-                                    // email address. Deriving it greeted
-                                    // waleflutter@gmail.com as "waleflutter".
-                                    append(userName?.takeIf { it.isNotBlank() } ?: "there")
-                                }
-                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
-                                    append(".")
-                                }
+                                // From the account, never derived from the email
+                                // address. Deriving it greeted
+                                // waleflutter@gmail.com as "waleflutter".
+                                val who = userName?.takeIf { it.isNotBlank() }
+                                val white = SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)
+                                val green = SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)
+                                withStyle(white) { append(if (who != null) "Welcome, " else "Hi ") }
+                                withStyle(green) { append(who ?: "Golfer") }
+                                withStyle(white) { append(".") }
                             },
                             fontSize = 24.sp,
                             lineHeight = 30.sp,
