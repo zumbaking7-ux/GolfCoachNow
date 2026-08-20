@@ -188,7 +188,7 @@ fun HomeScreen(
         ) {
             SkillCard(
                 title = "SWING LEARN",
-                description = "Watch how it's done. Grip, stance and swing.",
+                description = "See the grip, stance and swing.",
                 ctaLabel = "WATCH →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),
@@ -199,7 +199,7 @@ fun HomeScreen(
             )
             SkillCard(
                 title = "SWING CORRECT",
-                description = "Record your swing. Get instant feedback.",
+                description = "Record and get instant feedback.",
                 ctaLabel = "START →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),
@@ -279,7 +279,7 @@ private fun SkillCard(
             color = TextMuted,
             textAlign = TextAlign.Center,
             maxLines = 2,
-            lineHeight = 13.sp,
+            lineHeight = 15.sp,
         )
         Spacer(Modifier.height(6.dp))
         Box(
