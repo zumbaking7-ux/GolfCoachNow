@@ -220,7 +220,7 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ActionCard(
-                iconRes = R.drawable.ic_connect,
+                iconRes = R.drawable.ic_connect_people,
                 title = "CONNECT",
                 description = "The founder welcomes your thoughts",
                 modifier = Modifier.weight(1f),

@@ -321,7 +321,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         // Connect on the left, Share on the right, as specified. The stack
         // distributes them equally, so the two read as a matched pair.
         let connectCard = makeActionCard(
-            icon: "headphones",
+            icon: "person.3.fill",
             title: "CONNECT",
             description: "The founder welcomes your thoughts",
             action: #selector(connectTapped)
