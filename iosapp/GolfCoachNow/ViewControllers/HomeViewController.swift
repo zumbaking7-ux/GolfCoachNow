@@ -215,15 +215,15 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         ]
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: named != nil ? "Welcome, " : "Hi ", attributes: bold))
+        text.append(NSAttributedString(string: named != nil ? "Welcome " : "Hi ", attributes: bold))
+        // The full stop carries the name's colour rather than the label's.
         text.append(NSAttributedString(
-            string: named ?? "Golfer",
+            string: (named ?? "Golfer") + ".",
             attributes: [
                 .font: UIFont.systemFont(ofSize: 24, weight: .bold),
                 .foregroundColor: Theme.green
             ]
         ))
-        text.append(NSAttributedString(string: ".", attributes: bold))
         greetingLabel.attributedText = text
     }
 
@@ -322,7 +322,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         // Connect on the left, Share on the right, as specified. The stack
         // distributes them equally, so the two read as a matched pair.
         let connectCard = makeActionCard(
-            icon: "person.3.fill",
+            icon: "icon_connect",
             title: "CONNECT",
             description: "The founder welcomes your thoughts",
             action: #selector(connectTapped)
@@ -349,7 +349,10 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         iconView.translatesAutoresizingMaskIntoConstraints = false
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
             .applying(UIImage.SymbolConfiguration(hierarchicalColor: Theme.green))
-        iconView.image = UIImage(systemName: icon, withConfiguration: config)
+        // An asset wins over a symbol. Artwork carries its own colour, so it is
+        // not tinted; symbols still get the green treatment.
+        iconView.image = UIImage(named: icon)
+            ?? UIImage(systemName: icon, withConfiguration: config)
         iconView.contentMode = .scaleAspectFit
 
         let titleLabel = UILabel()

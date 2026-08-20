@@ -242,7 +242,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="inner">
         <div class="bar"></div>
         <div>
-          <h2 id="greeting-text">Hi <span>Golfer</span>.</h2>
+          <h2 id="greeting-text">Hi <span>Golfer.</span></h2>
           <p>What would you like<br>to learn today?</p>
         </div>
       </div>
@@ -461,9 +461,11 @@ function updateGreeting() {
   ));
   // Signed in and named gets a welcome; everyone else is a golfer. A signed in
   // account with no name yet falls to the greeting rather than to "Welcome, ."
+  // The full stop sits inside the green span, so it belongs to the name
+  // rather than trailing after it in white.
   document.getElementById('greeting-text').innerHTML = (authToken && safe)
-    ? 'Welcome, <span>' + safe + '</span>.'
-    : 'Hi <span>Golfer</span>.';
+    ? 'Welcome <span>' + safe + '.</span>'
+    : 'Hi <span>Golfer.</span>';
 }
 updateGreeting();
 

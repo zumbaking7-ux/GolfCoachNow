@@ -157,9 +157,8 @@ fun HomeScreen(
                                 val who = userName?.takeIf { it.isNotBlank() }
                                 val white = SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)
                                 val green = SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)
-                                withStyle(white) { append(if (who != null) "Welcome, " else "Hi ") }
-                                withStyle(green) { append(who ?: "Golfer") }
-                                withStyle(white) { append(".") }
+                                withStyle(white) { append(if (who != null) "Welcome " else "Hi ") }
+                                withStyle(green) { append((who ?: "Golfer") + ".") }
                             },
                             fontSize = 24.sp,
                             lineHeight = 30.sp,
