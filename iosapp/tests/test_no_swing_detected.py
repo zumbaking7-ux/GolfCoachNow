@@ -291,13 +291,13 @@ def test_a_broken_library_does_not_accuse_the_golfer(
 # --- Availability must mean usable, not merely importable ------------------
 
 
-def test_a_mediapipe_without_the_api_we_use_is_not_available(monkeypatch):
-    """MediaPipe 1.0 removed the legacy solutions API.
+def test_a_mediapipe_without_the_tasks_api_is_not_available(monkeypatch, tmp_path):
+    """Google removed the Solutions API this analyser first used.
 
-    It still imports. Treating that as availability sent every clip down a
-    path that raised: swallowed on the swing route, where it quietly fell back
-    to a weaker tier, and a server error on the others. The check has to be
-    for the thing actually called.
+    A MediaPipe missing the Tasks API still imports. Treating that as
+    availability sent every clip down a path that raised: swallowed on the
+    swing route, where it quietly fell back to a weaker tier, and a server
+    error on the others.
     """
     import sys
     import types
@@ -309,16 +309,51 @@ def test_a_mediapipe_without_the_api_we_use_is_not_available(monkeypatch):
     assert video_analyzer._ensure_mp() is False
 
 
-def test_a_mediapipe_with_the_api_is_available(monkeypatch):
+def _fake_mediapipe(monkeypatch):
+    """A MediaPipe that looks the way the Tasks API really does."""
     import sys
     import types
 
-    fake = types.ModuleType("mediapipe")
-    fake.solutions = types.SimpleNamespace(pose=object())
+    mediapipe = types.ModuleType("mediapipe")
+    tasks = types.ModuleType("mediapipe.tasks")
+    tasks_python = types.ModuleType("mediapipe.tasks.python")
+    vision = types.ModuleType("mediapipe.tasks.python.vision")
+    tasks.python = tasks_python
+    tasks_python.vision = vision
+    mediapipe.tasks = tasks
+
+    for name, mod in [
+        ("mediapipe", mediapipe),
+        ("mediapipe.tasks", tasks),
+        ("mediapipe.tasks.python", tasks_python),
+        ("mediapipe.tasks.python.vision", vision),
+    ]:
+        monkeypatch.setitem(sys.modules, name, mod)
 
     monkeypatch.setattr(video_analyzer, "mp", None)
     monkeypatch.setattr(video_analyzer, "_ensure_cv", lambda: True)
-    monkeypatch.setitem(sys.modules, "mediapipe", fake)
+
+
+def test_the_model_weights_must_be_on_disk_too(monkeypatch, tmp_path):
+    """MediaPipe ships the runtime but not the model.
+
+    A correct install with no weights detects nothing, so it must not report
+    itself as available - that was the shape of the last failure, arriving as
+    a server error rather than an answer.
+    """
+    _fake_mediapipe(monkeypatch)
+    monkeypatch.setattr(
+        video_analyzer, "POSE_MODEL_PATH", str(tmp_path / "not_downloaded.task")
+    )
+
+    assert video_analyzer._ensure_mp() is False
+
+
+def test_available_when_the_api_and_the_model_are_both_there(monkeypatch, tmp_path):
+    _fake_mediapipe(monkeypatch)
+    model = tmp_path / "pose_landmarker_lite.task"
+    model.write_bytes(b"not a real model, but present")
+    monkeypatch.setattr(video_analyzer, "POSE_MODEL_PATH", str(model))
 
     assert video_analyzer._ensure_mp() is True
     monkeypatch.setattr(video_analyzer, "mp", None)

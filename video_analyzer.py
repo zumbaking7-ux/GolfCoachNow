@@ -34,30 +34,53 @@ def _ensure_cv():
         return False
 
 
+mp_tasks = None
+mp_vision = None
+
+# The pose model the Tasks API loads. MediaPipe ships the runtime in the
+# package but not the weights, so this file has to be downloaded once and put
+# somewhere the server can read. Configurable because its home differs between
+# a laptop and the deployment.
+POSE_MODEL_PATH = os.environ.get(
+    "POSE_MODEL_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "pose_landmarker_lite.task"),
+)
+
+
 def _ensure_mp():
     """Whether pose tracking is genuinely usable, not merely installed.
 
-    Importing is not enough. MediaPipe 1.0 removed the legacy `solutions` API
-    this analyser is written against, so the import succeeds on a library that
-    cannot detect a thing. Reporting availability on the import alone sent
-    every clip down a path that raised: swallowed on the swing route, where it
-    fell through to a weaker tier, and surfaced as a server error everywhere
-    else.
+    Three things have to be true, and each has bitten us:
 
-    So the check is for the attribute actually used, not the package name.
+    1. MediaPipe imports.
+    2. The Tasks API is present. Google removed the legacy `solutions` API
+       this analyser was originally written against; it is gone from every
+       current release, which is why the import can succeed on a library that
+       cannot detect a thing.
+    3. The model weights are on disk. The package ships the runtime but not
+       the model, so a correct install can still detect nothing.
+
+    Reporting availability without all three sent every clip down a path that
+    raised: swallowed on the swing route, where it quietly fell back to a
+    weaker tier, and surfaced as a server error everywhere else.
     """
-    global mp
+    global mp, mp_tasks, mp_vision
     if mp is not None:
         return True
     if not _ensure_cv():
         return False
     try:
         import mediapipe as _mp
-        _mp.solutions.pose  # the API _extract_pose_landmarks calls
-        mp = _mp
-        return True
-    except (ImportError, AttributeError):
+        from mediapipe.tasks import python as _tasks
+        from mediapipe.tasks.python import vision as _vision
+    except ImportError:
         return False
+
+    if not os.path.exists(POSE_MODEL_PATH):
+        return False
+
+    mp, mp_tasks, mp_vision = _mp, _tasks, _vision
+    return True
 
 FAULT_KEYS = MODULE_FAULTS["swing"]
 
@@ -203,33 +226,53 @@ def _analyze_with_pose(file_path):
 
 
 def _extract_pose_landmarks(file_path, max_frames=20):
+    """Sample the clip and return the skeleton found in each sampled frame.
+
+    Written against MediaPipe's Tasks API. The older Solutions API this
+    originally used has been removed by Google, and no current release still
+    carries it.
+
+    The returned shape is unchanged - a list of {idx, t, lm} with lm as 33
+    (x, y, z) tuples - so the scoring below, and the landmark indices it
+    depends on, need to know nothing about which API produced them.
+    """
     cap = cv2.VideoCapture(file_path)
     if not cap.isOpened():
         raise VideoAnalysisError("Could not open video file")
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     step = max(1, total // max_frames)
-    pose = mp.solutions.pose.Pose(
-        static_image_mode=False, model_complexity=0,
-        min_detection_confidence=0.5, min_tracking_confidence=0.5,
+
+    options = mp_vision.PoseLandmarkerOptions(
+        base_options=mp_tasks.BaseOptions(model_asset_path=POSE_MODEL_PATH),
+        running_mode=mp_vision.RunningMode.VIDEO,
+        num_poses=1,
+        min_pose_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
     )
+
     results = []
     idx = 0
     try:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if idx % step == 0:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                out = pose.process(rgb)
-                if out.pose_landmarks:
-                    lm = [(l.x, l.y, l.z) for l in out.pose_landmarks.landmark]
-                    results.append({"idx": idx, "t": idx / fps, "lm": lm})
-            idx += 1
+        with mp_vision.PoseLandmarker.create_from_options(options) as landmarker:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                if idx % step == 0:
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                    # VIDEO mode requires timestamps that only ever increase.
+                    # Derived from the frame index rather than a clock, so the
+                    # same clip always analyses identically.
+                    timestamp_ms = int(idx * 1000 / fps)
+                    out = landmarker.detect_for_video(image, timestamp_ms)
+                    if out.pose_landmarks:
+                        lm = [(l.x, l.y, l.z) for l in out.pose_landmarks[0]]
+                        results.append({"idx": idx, "t": idx / fps, "lm": lm})
+                idx += 1
     finally:
         cap.release()
-        pose.close()
     return results
 
 

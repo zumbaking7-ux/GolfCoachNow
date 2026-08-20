@@ -53,6 +53,7 @@ holding them is never committed - `.gitignore` covers `.env`.
 | `RATE_LIMIT_REQUESTS` | `30` per window, per client address. |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60`. |
 | `VIDEO_BASE_URL` | Origin the video assets are served from, no trailing slash. Unset means no videos are published; the API answers `null` and the apps skip to the camera. |
+| `POSE_MODEL_PATH` | Pose model weights. MediaPipe ships the runtime but not the model; download it once (see `.env.example`). Missing means pose tracking is silently unavailable. |
 | `STRICT_ANALYSIS` | `false` by default. Set to `true` once the pose libraries are confirmed installed, so a clip can never be scored from its metadata. See below. |
 | `FOUNDER_EMAIL` | Where "connect with the founder" messages land. |
 | `APP_SHARE_URL` | The link the Share button emails to a friend. **May be left empty**, which makes `/share/invite` answer 503 and sends nobody anything. |
