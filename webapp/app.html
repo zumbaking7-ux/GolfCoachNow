@@ -256,7 +256,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="cta-btn">WATCH &rarr;</div>
     </div>
     <div class="skill-card" onclick="startCorrect()">
-      <img src="/static/img/ic_swing.png" alt="Swing Correct">
+      <img src="/static/img/ic_swing_white.png" alt="Swing Correct">
       <div class="name">SWING CORRECT</div>
       <div class="desc">Record and get instant feedback.</div>
       <div class="cta-btn">START &rarr;</div>
@@ -754,19 +754,31 @@ function playVideo(url, onFinished) {
 // Swing Learn and Swing Correct are two doors onto the same module. Learn
 // plays the lesson and stops; Correct goes straight to the camera. The golfer
 // picked one, so neither leads into the other.
-async function startLearn() {
-  let url = null;
+async function lessonUrl() {
   try {
     const res = await fetch(API + '/videos/instructional?module=swing');
-    if (res.ok) url = (await res.json()).url;
+    if (res.ok) return (await res.json()).url || null;
   } catch (e) {
     // Treated as "no video published", which is the same outcome for the user.
   }
+  return null;
+}
+
+// Learn ends with the lesson. Correct plays the same lesson first and then
+// opens the camera, so the golfer sees it done before being asked to do it.
+async function startLearn() {
+  const url = await lessonUrl();
   if (url) playVideo(url, goHome);
   else toast('The lesson video is on its way. Try Swing Correct in the meantime.');
 }
 
-function startCorrect() { openCamera('swing'); }
+// A missing lesson must never block recording, so this falls straight through
+// to the camera rather than reporting anything.
+async function startCorrect() {
+  const url = await lessonUrl();
+  if (url) playVideo(url, () => openCamera('swing'));
+  else openCamera('swing');
+}
 
 // Wire four: the correction clip, played over the card that is already filled
 // in behind it, so whatever happens the written correction is still there.

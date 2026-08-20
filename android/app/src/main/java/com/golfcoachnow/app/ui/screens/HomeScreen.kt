@@ -201,7 +201,7 @@ fun HomeScreen(
                 title = "SWING CORRECT",
                 description = "Record and get instant feedback.",
                 ctaLabel = "START →",
-                iconRes = R.drawable.ic_swing,
+                iconRes = R.drawable.ic_swing_white,
                 modifier = Modifier.weight(1f),
                 onClick = {
                     ApiClient.trackEvent("module_selected", GolfModule.SWING)

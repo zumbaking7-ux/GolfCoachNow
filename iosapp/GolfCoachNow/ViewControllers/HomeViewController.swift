@@ -240,7 +240,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             title: "SWING CORRECT",
             description: "Record and get instant feedback.",
             ctaTitle: "START  →",
-            iconAsset: GolfModule.swing.cardIconAsset,
+            iconAsset: "icon_swing_white",
             action: #selector(correctTapped(_:))
         ))
     }
@@ -413,10 +413,12 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     @objc private func correctTapped(_ gesture: UITapGestureRecognizer) {
         bounce(gesture.view)
         APIClient.shared.trackEvent("module_selected", module: .swing)
-        navigationController?.pushViewController(
-            CameraViewController(module: .swing),
-            animated: true
-        )
+        playLesson(then: { [weak self] in
+            self?.navigationController?.pushViewController(
+                CameraViewController(module: .swing),
+                animated: true
+            )
+        })
     }
 
     private func bounce(_ view: UIView?) {
@@ -429,15 +431,28 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         }
     }
 
-    /// Plays the lesson clip behind Swing Learn.
+    /// Plays the lesson clip, then runs `next` if there is one.
     ///
-    /// Version 1 ships one instructional video, shared across modes. Until it
-    /// is published the lookup returns no url, and the golfer is told that
-    /// plainly: a button that quietly does nothing reads as a broken app.
-    private func playLesson() {
+    /// Swing Correct passes a continuation and ends at the camera; Swing Learn
+    /// passes none and ends with the lesson. Version 1 ships one instructional
+    /// video, shared across modes.
+    ///
+    /// When it is not published yet the two want opposite things. Ahead of the
+    /// camera the clip is skipped in silence, because recording must never wait
+    /// on a coaching video. Reached on its own it has to be reported, or Swing
+    /// Learn is a button that quietly does nothing.
+    private func playLesson(then next: (() -> Void)? = nil) {
         APIClient.shared.fetchInstructionalVideo(module: .swing) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+
+                let unavailable = {
+                    if let next {
+                        next()
+                    } else {
+                        self.showLessonUnavailable()
+                    }
+                }
 
                 switch result {
                 case .success(let response):
@@ -445,15 +460,15 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
                         let urlString = response.url,
                         let url = URL(string: urlString)
                     else {
-                        self.showLessonUnavailable()
+                        unavailable()
                         return
                     }
                     self.present(
-                        VideoPlayerViewController(url: url, onFinished: {}),
+                        VideoPlayerViewController(url: url, onFinished: { next?() }),
                         animated: false
                     )
                 case .failure:
-                    self.showLessonUnavailable()
+                    unavailable()
                 }
             }
         }

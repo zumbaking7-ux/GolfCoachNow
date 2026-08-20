@@ -32,6 +32,7 @@ import com.golfcoachnow.app.ui.theme.GolfGreen
 fun InstructionalVideoScreen(
     module: GolfModule,
     onFinished: () -> Unit,
+    onUnavailable: () -> Unit = onFinished,
 ) {
     var url by remember { mutableStateOf<String?>(null) }
     var resolved by remember { mutableStateOf(false) }
@@ -48,7 +49,10 @@ fun InstructionalVideoScreen(
     }
 
     LaunchedEffect(resolved, url) {
-        if (resolved && url == null) onFinished()
+        // Ahead of the camera an unpublished clip is skipped silently. Reached
+        // on its own from Swing Learn it has to be reported, or the button
+        // appears to do nothing at all.
+        if (resolved && url == null) onUnavailable()
     }
 
     Box(
