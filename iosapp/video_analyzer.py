@@ -35,6 +35,17 @@ def _ensure_cv():
 
 
 def _ensure_mp():
+    """Whether pose tracking is genuinely usable, not merely installed.
+
+    Importing is not enough. MediaPipe 1.0 removed the legacy `solutions` API
+    this analyser is written against, so the import succeeds on a library that
+    cannot detect a thing. Reporting availability on the import alone sent
+    every clip down a path that raised: swallowed on the swing route, where it
+    fell through to a weaker tier, and surfaced as a server error everywhere
+    else.
+
+    So the check is for the attribute actually used, not the package name.
+    """
     global mp
     if mp is not None:
         return True
@@ -42,9 +53,10 @@ def _ensure_mp():
         return False
     try:
         import mediapipe as _mp
+        _mp.solutions.pose  # the API _extract_pose_landmarks calls
         mp = _mp
         return True
-    except ImportError:
+    except (ImportError, AttributeError):
         return False
 
 FAULT_KEYS = MODULE_FAULTS["swing"]

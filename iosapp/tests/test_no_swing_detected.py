@@ -286,3 +286,39 @@ def test_a_broken_library_does_not_accuse_the_golfer(
 
     with pytest.raises(RuntimeError):
         video_analyzer.require_a_person(_plausible(tmp_path))
+
+
+# --- Availability must mean usable, not merely importable ------------------
+
+
+def test_a_mediapipe_without_the_api_we_use_is_not_available(monkeypatch):
+    """MediaPipe 1.0 removed the legacy solutions API.
+
+    It still imports. Treating that as availability sent every clip down a
+    path that raised: swallowed on the swing route, where it quietly fell back
+    to a weaker tier, and a server error on the others. The check has to be
+    for the thing actually called.
+    """
+    import sys
+    import types
+
+    monkeypatch.setattr(video_analyzer, "mp", None)
+    monkeypatch.setattr(video_analyzer, "_ensure_cv", lambda: True)
+    monkeypatch.setitem(sys.modules, "mediapipe", types.ModuleType("mediapipe"))
+
+    assert video_analyzer._ensure_mp() is False
+
+
+def test_a_mediapipe_with_the_api_is_available(monkeypatch):
+    import sys
+    import types
+
+    fake = types.ModuleType("mediapipe")
+    fake.solutions = types.SimpleNamespace(pose=object())
+
+    monkeypatch.setattr(video_analyzer, "mp", None)
+    monkeypatch.setattr(video_analyzer, "_ensure_cv", lambda: True)
+    monkeypatch.setitem(sys.modules, "mediapipe", fake)
+
+    assert video_analyzer._ensure_mp() is True
+    monkeypatch.setattr(video_analyzer, "mp", None)
