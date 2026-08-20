@@ -83,11 +83,22 @@ def today_utc() -> date_type:
 class DailyUsage(Base):
     __tablename__ = "daily_usage"
     __table_args__ = (
-        UniqueConstraint("device_id", "module", "usage_date", name="uq_daily_usage_device_module_date"),
+        # Includes user_id because one row per handset per day cannot
+        # represent two accounts sharing a phone: the second golfer inherited
+        # the first one's spent reps.
+        UniqueConstraint(
+            "device_id", "user_id", "module", "usage_date",
+            name="uq_daily_usage_device_user_module_date",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False)
+    # Nullable because a rep can happen before anyone signs in: the launch
+    # allowance lets a stranger take one. Once it is set, it is what the daily
+    # cap is counted against, so free reps follow the golfer rather than the
+    # handset.
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     module: Mapped[str] = mapped_column(String(MODULE_LENGTH), nullable=False)
     usage_date: Mapped[date_type] = mapped_column(Date, default=today_utc, nullable=False)
     rep_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -102,6 +113,7 @@ class AnalyticsEvent(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     event_name: Mapped[str] = mapped_column(String(EVENT_NAME_LENGTH), nullable=False, index=True)
     module: Mapped[str | None] = mapped_column(String(MODULE_LENGTH), nullable=True)
     platform: Mapped[str | None] = mapped_column(String(PLATFORM_LENGTH), nullable=True)
@@ -119,6 +131,7 @@ class RepResult(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     device_id: Mapped[str] = mapped_column(String(ID_LENGTH), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     module: Mapped[str] = mapped_column(String(MODULE_LENGTH), nullable=False, index=True)
     dominant_fault: Mapped[str] = mapped_column(String(FAULT_LENGTH), nullable=False)
     correction: Mapped[str] = mapped_column(Text, nullable=False)

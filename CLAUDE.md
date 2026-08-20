@@ -132,9 +132,15 @@ so swapping a clip needs no app release. Keep it that way.
 `Python-urllib` with error 1010. This silently blocked every login email for
 weeks and looked like a configuration problem.
 
-**Entitlement is keyed to the device, not the account.** Deliberate: otherwise a
-new account every three reps defeats the paywall. It resets at **UTC midnight**,
-not in the golfer's own timezone.
+**Entitlement is keyed to the account when there is one, and falls back to the
+device.** The fallback is a real state, not a gap: the launch allowance lets a
+stranger take one rep before signing in. It resets at **UTC midnight**, not in
+the golfer's own timezone.
+
+**Analysis requires an account, with one rep of grace.**  sets how
+many; it is 1 for the launch window and  closes it without a release. The
+gate answers **401**; the daily limit answers **403**. All three apps pick a
+screen from that difference, so do not collapse them.
 
 **`/upload` takes `module` and `device_id` as query parameters, not form
 fields.** Not a style choice: the ASGI-to-WSGI bridge does not parse non-file

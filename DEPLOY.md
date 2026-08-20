@@ -11,15 +11,21 @@ moving to the next.
 
 ## What this deploy contains
 
-- The video pipeline: `GET /videos/instructional`, and `correction_video_url` on
-  every analysis response
-- `POST /share/invite` and `POST /connect/founder`
-- The analyser refusing to invent coaching for a clip it cannot read, and not
-  spending a rep on one
-- A `name` on the account, captured at sign-in, for the greeting
-- The web app: Talk Mode removed, the five-button front door, contact modals
+- **Analysis now requires an account**, with one free rep first. `/upload`,
+  `/wedge`, `/putt`, `/short-game` and `/talk` refuse a stranger who has
+  already used their allowance, with **401** — distinct from the **403** the
+  daily limit returns.
+- **Usage, history and analytics attach to the person**, not the handset. Free
+  reps and purchases now follow a golfer to a new phone.
+- The web app's two-button front door, the Connect icon, and the greeting.
+- Swing Learn points at Victor's lesson.
 
-**One database migration**, adding a nullable `name` column to `users`.
+**One database migration**, and it is heavier than the last one: it rebuilds
+`daily_usage` to change a unique constraint. The backup in step 1 is not
+optional.
+
+Videos are published separately — see `PUBLISH_VIDEOS.md`. Until that is done
+Swing Learn correctly says the lesson is on its way.
 
 ---
 
@@ -28,13 +34,15 @@ moving to the next.
 ```
 cd /home/golfcoachnow
 tar -czf mysite-code-$(date +%Y%m%d-%H%M).tar.gz \
-    mysite/server.py mysite/video_analyzer.py mysite/payments mysite/static
+    mysite/server.py mysite/video_analyzer.py mysite/video_library.py \
+    mysite/payments mysite/static
 cp mysite/payments.db mysite/payments.db.predeploy-$(date +%Y%m%d-%H%M)
 ls -lh mysite-code-*.tar.gz mysite/payments.db.predeploy-*
 ```
 
-Both files must exist and be non-zero before you continue. The database backup
-matters more than usual here because this deploy migrates the schema.
+Both files must exist and be non-zero before you continue. **This deploy
+rebuilds a table.** A rebuild that fails partway is the one case where the
+database backup is the only way back.
 
 ---
 
@@ -59,26 +67,24 @@ the app keeps running the old `server.py` and nothing breaks.
 ```
 cd /home/golfcoachnow
 cp deploy-tmp/iosapp/video_library.py              mysite/
-cp deploy-tmp/iosapp/payments/contact_routes.py    mysite/payments/
 cp deploy-tmp/iosapp/payments/config.py            mysite/payments/
-cp deploy-tmp/iosapp/payments/email_sender.py      mysite/payments/
+cp deploy-tmp/iosapp/payments/models.py            mysite/payments/
+cp deploy-tmp/iosapp/payments/entitlement.py       mysite/payments/
 cp deploy-tmp/iosapp/payments/accounts.py          mysite/payments/
 cp deploy-tmp/iosapp/payments/accounts_models.py   mysite/payments/
 cp deploy-tmp/iosapp/payments/auth_routes.py       mysite/payments/
+cp deploy-tmp/iosapp/payments/contact_routes.py    mysite/payments/
+cp deploy-tmp/iosapp/payments/email_sender.py      mysite/payments/
 cp deploy-tmp/iosapp/payments/schemas.py           mysite/payments/
-cp deploy-tmp/iosapp/alembic/versions/b4d17e2a9c53_add_user_name.py mysite/alembic/versions/
+cp deploy-tmp/iosapp/alembic/versions/c9e2f4a71b38_attribute_usage_to_users.py mysite/alembic/versions/
 cp deploy-tmp/iosapp/video_analyzer.py             mysite/
 cp deploy-tmp/iosapp/server.py                     mysite/
 echo "backend copied"
 ```
 
-The repo's `email_sender.py` already contains the User-Agent fix applied by hand
-earlier, plus the general send function the contact endpoints need. It is a
-superset of what is running — nothing is lost.
-
-**No `.env` changes are needed.** `EMAIL_FROM` and `APP_SHARE_URL` are set in
-the WSGI file and take precedence. `VIDEO_BASE_URL` stays unset until the assets
-are published, which correctly means "no videos yet".
+**No `.env` changes are needed.** `UNGATED_REPS` defaults to 1, which is what
+we want for the launch window. Setting it to `0` later closes the free rep
+without a code change — see step 9.
 
 ---
 
@@ -94,8 +100,32 @@ python3.10 -m alembic current
 Use **python3.10** — that is what the web app runs, and the console's default
 `python3` is a different version without the packages.
 
-The first `current` should print `a7b3e9f12c84`, the last `b4d17e2a9c53`. If the
-upgrade fails, stop and restore the database backup; do not reload.
+The first `current` should print `b4d17e2a9c53`, the last `c9e2f4a71b38`.
+
+This one does more than add a column. It rebuilds `daily_usage` so two accounts
+sharing a phone can each have their own daily count, and it backfills
+`user_id` on usage, history and analytics from the existing `user_devices`
+links. **If the upgrade fails, stop and restore the database backup. Do not
+reload.**
+
+Sanity check the backfill — rows for devices somebody has signed in on should
+now carry a user, and rows for devices nobody ever signed in on should not:
+
+```
+cd /home/golfcoachnow/mysite
+python3.10 - <<'EOF'
+import sqlite3
+c = sqlite3.connect("payments.db")
+for t in ("daily_usage", "rep_results", "analytics_events"):
+    total = c.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+    named = c.execute("SELECT COUNT(*) FROM %s WHERE user_id IS NOT NULL" % t).fetchone()[0]
+    print("%-18s %4d rows, %4d attached to an account" % (t, total, named))
+EOF
+```
+
+Rows left unattached are expected and correct: they came from devices that
+never signed in. Nothing should be lost — the totals should match what was
+there before.
 
 ---
 
@@ -105,15 +135,15 @@ upgrade fails, stop and restore the database backup; do not reload.
 cd /home/golfcoachnow
 cp deploy-tmp/webapp/index.html mysite/static/app.html
 cp deploy-tmp/webapp/index.html mysite/static/index.html
+mkdir -p mysite/static/img
+cp deploy-tmp/webapp/static/img/ic_connect_people.png mysite/static/img/
+cp deploy-tmp/webapp/static/img/ic_swing_white.png    mysite/static/img/
 echo "web app copied"
 ```
 
-Both filenames, because the live site is served from `app.html` and `index.html`
-is what the directory root resolves to.
-
-The three styling refinements someone made directly on the server — the image
-sign-in icon and the button treatment — are already merged into this file, so
-they survive.
+Both filenames, because the live site is served from `app.html` and
+`index.html` is what the directory root resolves to. The two icons are new; the
+front door renders without them but with broken images.
 
 ---
 
@@ -123,13 +153,14 @@ they survive.
 cd /home/golfcoachnow/mysite
 python3.10 -c "import server; print('server imports cleanly')"
 python3.10 -c "import video_library; print('video_library OK')"
-python3.10 -c "from payments.contact_routes import router; print('contact routes OK')"
-python3.10 -c "from payments.accounts_models import User; print('name column:', hasattr(User, 'name'))"
+python3.10 -c "from payments.entitlement import has_paid_access; print('entitlement OK')"
+python3.10 -c "from payments.config import settings; print('ungated_reps =', settings.ungated_reps)"
+python3.10 -c "from payments.models import DailyUsage; print('user_id column:', hasattr(DailyUsage, 'user_id'))"
 ```
 
 **If any of these fail, stop and roll back. Do not reload.** A broken import
 takes the whole site down — `/upload` and `/wedge` included, not just the new
-endpoints.
+behaviour.
 
 ---
 
@@ -151,15 +182,48 @@ curl -s -o /dev/null -w "app.html %{http_code}\n" "https://golfcoachnow.pythonan
 Expected:
 
 - health returns `{"status":"ok",...}`
-- the video endpoint returns `{"module":"swing","url":null}` — `null` is correct,
-  no assets are published yet
+- the video endpoint returns a url once `PUBLISH_VIDEOS.md` is done, `null`
+  before that. **`null` is a correct answer, not a failure.**
 - unlock-status returns JSON. **A 404 here means the payments package failed to
   import and every payment route is silently gone**, which looks perfectly
   healthy from the front page. This is the check that matters most.
 - `app.html 200`
 
-Then in a browser: open the web app, confirm the five-button front door with no
-Talk Mode, and sign in. The greeting should use the name you enter.
+Then check the gate itself, which is the point of this deploy:
+
+```
+DEV="gate_probe_$(date +%s)"
+for i in 1 2; do
+  printf "rep %d: " $i
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+    "https://golfcoachnow.pythonanywhere.com/upload?module=swing&device_id=$DEV" \
+    -F "file=@/dev/null;filename=probe.mp4"
+done
+```
+
+The first should not be **401** — a new device still has its free rep. The
+second **must be 401**: the allowance is spent and the gate is live. Any other
+pair of numbers means the gate is not doing its job, and a golfer can analyse
+without an account.
+
+Finally, in a browser: open the web app, confirm the two-button front door and
+the greeting, sign in, and record a swing.
+
+---
+
+## 9. Closing the free rep, after the press coverage
+
+The un-gated rep exists for the launch window. To close it, no release is
+needed:
+
+Web tab → **WSGI configuration file** → add beside the other settings:
+
+```python
+os.environ["UNGATED_REPS"] = "0"
+```
+
+Save → **Reload**. From that point every analysis needs an account. Removing
+the line restores it.
 
 ---
 
@@ -169,15 +233,21 @@ Talk Mode, and sign in. The greeting should use the name you enter.
 cd /home/golfcoachnow
 tar -xzf mysite-code-<timestamp>.tar.gz
 cp mysite/payments.db.predeploy-<timestamp> mysite/payments.db
-cd mysite && python3.10 -m alembic downgrade a7b3e9f12c84
 ```
 
-Then reload. Restoring the database backup alone is enough; the downgrade is
-there in case you keep the newer database.
+Then reload.
 
-The two new files (`video_library.py`, `payments/contact_routes.py`) are left
-behind by a rollback, which is harmless — nothing imports them once the old
-`server.py` is back.
+**Restore the database backup rather than running `alembic downgrade`.** The
+downgrade works, and is tested, but it is lossy by necessity: the old shape
+cannot hold two accounts on one handset, so it collapses those rows and keeps
+the larger count. The backup has no such problem. The downgrade is there for
+the case where the newer database has to be kept.
+
+If you do need it:
+
+```
+cd /home/golfcoachnow/mysite && python3.10 -m alembic downgrade b4d17e2a9c53
+```
 
 ---
 

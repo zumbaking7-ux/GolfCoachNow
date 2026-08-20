@@ -24,6 +24,7 @@ try:
     from payments.db import get_session
     from payments.entitlement import check_entitlement, record_usage
     from payments.accounts import user_for_token
+    from payments.accounts_models import User
     from payments.auth_routes import bearer_token
     from payments.config import settings as payment_settings
     from payments.models import AnalyticsEvent, DailyUsage, RepResult
@@ -108,6 +109,7 @@ def get_instructional_video(module: str = Query("swing")):
 
 @app.get("/entitlement")
 def get_entitlement(
+    request: Request,
     device_id: str = Query(...),
     module: str = Query("swing"),
 ):
@@ -125,7 +127,11 @@ def get_entitlement(
 
     db = next(get_session())
     try:
-        status = check_entitlement(db, device_id, module)
+        # No gate here - this endpoint answers for strangers too. The token is
+        # read only so that a signed-in golfer is told their own count.
+        status = check_entitlement(
+            db, device_id, module, user_for_token(db, bearer_token(request))
+        )
         return {
             "allowed": status.allowed,
             "is_subscriber": status.is_subscriber,
@@ -137,7 +143,7 @@ def get_entitlement(
         db.close()
 
 
-def _save_result(device_id: str, module: str, result: dict):
+def _save_result(device_id: str, module: str, result: dict, user_id: int | None = None):
     if not _has_payments or not device_id:
         return
     fault = result.get("dominant_fault")
@@ -147,6 +153,7 @@ def _save_result(device_id: str, module: str, result: dict):
     try:
         db.add(RepResult(
             device_id=device_id,
+            user_id=user_id,
             module=module,
             dominant_fault=fault,
             correction=result.get("correction") or "",
@@ -170,24 +177,31 @@ def _reps_ever(db, device_id: str) -> int:
     return int(total or 0)
 
 
-def _require_access(request, device_id: str) -> None:
+def _require_access(request, device_id: str) -> int | None:
     """Refuse the analysis path to strangers, with a little grace.
 
     401 rather than 403, because the daily limit already uses 403. The two mean
     different things to the golfer - "sign in" against "subscribe" - and the
     apps have to be able to tell them apart without reading the message.
+
+    Returns the id of whoever is asking, or None for a stranger still inside
+    the launch allowance. The id is what the rest of the request is keyed to,
+    so usage and history attach to the person rather than the handset. An id
+    rather than the object, because the session it was loaded in closes here
+    and a detached instance is a trap for whoever reads this next.
     """
     if not _has_payments:
-        return
+        return None
 
     db = next(get_session())
     try:
-        if user_for_token(db, bearer_token(request)) is not None:
-            return
+        user = user_for_token(db, bearer_token(request))
+        if user is not None:
+            return user.id
 
         allowance = payment_settings.ungated_reps
         if allowance > 0 and device_id and _reps_ever(db, device_id) < allowance:
-            return
+            return None
 
         raise HTTPException(
             401,
@@ -200,7 +214,12 @@ def _require_access(request, device_id: str) -> None:
         db.close()
 
 
-def _check_allowance(device_id: str, module: str):
+def _user(db, user_id: int | None):
+    """Load the account inside the caller session, or None."""
+    return db.get(User, user_id) if user_id else None
+
+
+def _check_allowance(device_id: str, module: str, user_id: int | None = None):
     """Gate on the daily limit without spending a rep.
 
     Used by the upload path, where the recording might turn out to contain no
@@ -213,7 +232,7 @@ def _check_allowance(device_id: str, module: str):
         raise HTTPException(400, "device_id is required")
     db = next(get_session())
     try:
-        status = check_entitlement(db, device_id, module)
+        status = check_entitlement(db, device_id, module, _user(db, user_id))
         if not status.allowed:
             raise HTTPException(
                 403,
@@ -228,13 +247,13 @@ def _check_allowance(device_id: str, module: str):
         db.close()
 
 
-def _record_rep(device_id: str, module: str):
+def _record_rep(device_id: str, module: str, user_id: int | None = None):
     """Spend one rep. Called only once real coaching is going back."""
     if not _has_payments or not device_id:
         return
     db = next(get_session())
     try:
-        record_usage(db, device_id, module)
+        record_usage(db, device_id, module, _user(db, user_id))
     finally:
         db.close()
 
@@ -258,14 +277,14 @@ def _unreadable_clip_response(message: str) -> dict:
     }
 
 
-def _check_and_record(device_id: str, module: str):
+def _check_and_record(device_id: str, module: str, user_id: int | None = None):
     if not _has_payments:
         return
     if not device_id:
         raise HTTPException(400, "device_id is required")
     db = next(get_session())
     try:
-        status = record_usage(db, device_id, module)
+        status = record_usage(db, device_id, module, _user(db, user_id))
         if not status.allowed:
             raise HTTPException(
                 403,
@@ -290,11 +309,11 @@ async def upload_video(
     if module not in VALID_MODULES:
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
 
-    _require_access(request, device_id)
+    user_id = _require_access(request, device_id)
 
     # Checked, not spent. The rep is recorded further down, once we know there
     # was actually a swing in the clip.
-    _check_allowance(device_id, module)
+    _check_allowance(device_id, module, user_id)
 
     if not file.filename:
         raise HTTPException(400, "No file provided")
@@ -336,28 +355,28 @@ async def upload_video(
 
 @app.post("/wedge")
 def run_wedge(request: Request, swing: SwingData):
-    _require_access(request, swing.device_id)
-    _check_and_record(swing.device_id, "swing")
+    user_id = _require_access(request, swing.device_id)
+    _check_and_record(swing.device_id, "swing", user_id)
     result = wedge_process(swing.data)
-    _save_result(swing.device_id, "swing", result)
+    _save_result(swing.device_id, "swing", result, user_id)
     return _with_correction_video("swing", result)
 
 
 @app.post("/putt")
 def run_putt(request: Request, swing: SwingData):
-    _require_access(request, swing.device_id)
-    _check_and_record(swing.device_id, "putt")
+    user_id = _require_access(request, swing.device_id)
+    _check_and_record(swing.device_id, "putt", user_id)
     result = putt_process(swing.data)
-    _save_result(swing.device_id, "putt", result)
+    _save_result(swing.device_id, "putt", result, user_id)
     return _with_correction_video("putt", result)
 
 
 @app.post("/short-game")
 def run_short_game(request: Request, swing: SwingData):
-    _require_access(request, swing.device_id)
-    _check_and_record(swing.device_id, "short_game")
+    user_id = _require_access(request, swing.device_id)
+    _check_and_record(swing.device_id, "short_game", user_id)
     result = chip_process(swing.data)
-    _save_result(swing.device_id, "short_game", result)
+    _save_result(swing.device_id, "short_game", result, user_id)
     return _with_correction_video("short_game", result)
 
 
@@ -367,20 +386,22 @@ def talk_mode(request: Request, req: TalkRequest):
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
     # Gated like the rest. This adds a check in front of the engine; it does not
     # touch the engine, which is unchanged and still reachable once signed in.
-    _require_access(request, req.device_id)
-    _check_and_record(req.device_id, req.module)
+    user_id = _require_access(request, req.device_id)
+    _check_and_record(req.device_id, req.module, user_id)
     return process_talk(req.text, req.module)
 
 
 @app.post("/analytics/event")
-def track_event(event: AnalyticsEventRequest):
+def track_event(request: Request, event: AnalyticsEventRequest):
     if not _has_payments:
         return {"status": "ok"}
 
     db = next(get_session())
     try:
+        user = user_for_token(db, bearer_token(request))
         db.add(AnalyticsEvent(
             device_id=event.device_id,
+            user_id=user.id if user else None,
             event_name=event.event_name,
             module=event.module,
             platform=event.platform,
@@ -393,15 +414,18 @@ def track_event(event: AnalyticsEventRequest):
 
 
 @app.post("/analytics/batch")
-def track_events_batch(events: list[AnalyticsEventRequest]):
+def track_events_batch(request: Request, events: list[AnalyticsEventRequest]):
     if not _has_payments:
         return {"status": "ok", "count": len(events)}
 
     db = next(get_session())
     try:
+        user = user_for_token(db, bearer_token(request))
+        user_id = user.id if user else None
         for event in events:
             db.add(AnalyticsEvent(
                 device_id=event.device_id,
+                user_id=user_id,
                 event_name=event.event_name,
                 module=event.module,
                 platform=event.platform,
