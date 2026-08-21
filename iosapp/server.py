@@ -1,9 +1,10 @@
 import io
 import json
 import os
+import re
 import tempfile
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 from wedge import process_mobile_input as wedge_process, CORRECTIONS as WEDGE_CORRECTIONS
@@ -710,6 +711,77 @@ _GO_PAGE = """<!DOCTYPE html>
 </div></div>
 <script>setTimeout(function(){{window.location.href="golfcoachnow://mode/{mode}"}},300)</script>
 </body></html>"""
+
+
+_VIDEO_DIR = os.path.join(_STATIC_DIR, "videos")
+_RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+@app.get("/media/{path:path}")
+def media(path: str, request: Request):
+    """Serve a video, honouring byte ranges.
+
+    The static host does not: a Range request comes back 200 with the whole
+    file and no Accept-Ranges header. Android's VideoView wraps MediaPlayer,
+    which asks for ranges and expects 206, so every clip failed there - and
+    failed quietly, because the player's error path is the same as its
+    finished path.
+
+    This is a stopgap and should be read as one. Streaming twelve megabytes
+    through Python costs CPU that nginx would not, on a host where CPU is
+    metered, so the real answer is storage that does ranges properly and a
+    VIDEO_BASE_URL pointing at it. That is a decision and an account; this is
+    today.
+    """
+    target = os.path.normpath(os.path.join(_VIDEO_DIR, path))
+    # normpath collapses .. before this check, so a path climbing out of the
+    # videos directory fails here rather than reading something it should not.
+    if not target.startswith(_VIDEO_DIR + os.sep) or not os.path.isfile(target):
+        raise HTTPException(404, "No such clip.")
+
+    size = os.path.getsize(target)
+    start, end = 0, size - 1
+    partial = False
+
+    match = _RANGE.match(request.headers.get("range", "") or "")
+    if match:
+        first, last = match.group(1), match.group(2)
+        if first:
+            start = int(first)
+            if last:
+                end = min(int(last), size - 1)
+        elif last:
+            # "bytes=-500" means the last 500 bytes.
+            start = max(0, size - int(last))
+        if start > end or start >= size:
+            return Response(status_code=416, headers={"Content-Range": "bytes */%d" % size})
+        partial = True
+
+    length = end - start + 1
+
+    def chunks():
+        with open(target, "rb") as handle:
+            handle.seek(start)
+            left = length
+            while left > 0:
+                block = handle.read(min(65536, left))
+                if not block:
+                    break
+                left -= len(block)
+                yield block
+
+    headers = {
+        "Content-Length": str(length),
+        "Accept-Ranges": "bytes",
+        "Content-Type": "video/mp4",
+        # A clip changes only when it is replaced, and replacing it changes the
+        # url, so this can be cached hard.
+        "Cache-Control": "public, max-age=604800",
+    }
+    if partial:
+        headers["Content-Range"] = "bytes %d-%d/%d" % (start, end, size)
+
+    return StreamingResponse(chunks(), status_code=206 if partial else 200, headers=headers)
 
 
 @app.get("/download", response_class=HTMLResponse)

@@ -124,9 +124,13 @@ fun HomeScreen(
 
         // Greeting card below the banner, not over it. It used to be pulled up
         // 24dp, which hid the glow sweep along the bottom of the artwork.
+        //
+        // padding, not offset: offset moves what is drawn and leaves the space
+        // it was measured in behind, so a positive one paints this over
+        // whatever comes next instead of moving it down.
         Box(
             modifier = Modifier
-                .offset(y = 10.dp)
+                .padding(top = 10.dp)
                 .padding(horizontal = 16.dp),
         ) {
             Box(
@@ -183,7 +187,7 @@ fun HomeScreen(
         // Skill cards row
         Row(
             modifier = Modifier
-                .offset(y = 22.dp)
+                .padding(top = 12.dp)
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
