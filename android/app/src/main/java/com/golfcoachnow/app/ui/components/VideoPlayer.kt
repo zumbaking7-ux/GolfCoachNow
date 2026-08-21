@@ -4,6 +4,7 @@ import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,6 +63,10 @@ fun VideoPlayer(
             onClick = { finish() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                // The clip fills the screen deliberately, so the player keeps
+                // drawing behind the bars. Skip must not: on a gesture phone
+                // it would sit under the navigation bar and be hard to hit.
+                .navigationBarsPadding()
                 .padding(24.dp),
         ) {
             Text(text = "SKIP", color = Color.White, fontSize = 14.sp)

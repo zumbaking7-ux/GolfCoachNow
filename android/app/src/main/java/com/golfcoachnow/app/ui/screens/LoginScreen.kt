@@ -50,6 +50,9 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
+            // Same reason as the home screen: the content is drawn behind the
+            // system bars unless something says otherwise.
+            .safeDrawingPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

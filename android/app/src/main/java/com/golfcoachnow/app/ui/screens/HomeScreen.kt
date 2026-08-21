@@ -73,6 +73,11 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
+            // MainActivity calls enableEdgeToEdge, which draws behind the
+            // status and navigation bars. Camera and Paywall already allowed
+            // for that; this screen did not, so the banner sat under the
+            // clock and the action row under the gesture bar.
+            .safeDrawingPadding()
             .verticalScroll(scrollState),
     ) {
         // Banner
