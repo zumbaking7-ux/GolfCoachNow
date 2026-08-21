@@ -54,6 +54,10 @@ final class VerifyCodeViewController: UIViewController {
 
     private var digitFields: [UITextField] = []
 
+    /// Holds the six code boxes. A property rather than a local, because it is
+    /// hidden once the code is accepted and the name step takes over.
+    private let digitsStack = UIStackView()
+
     /// Asked for here rather than on the email screen so requesting a code
     /// stays a single field. Optional: left blank it never erases a name
     /// already stored on the account.
@@ -135,7 +139,6 @@ final class VerifyCodeViewController: UIViewController {
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
     private func setupUI() {
-        let digitsStack = UIStackView()
         digitsStack.translatesAutoresizingMaskIntoConstraints = false
         digitsStack.axis = .horizontal
         digitsStack.spacing = 10
