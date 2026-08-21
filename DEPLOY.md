@@ -220,7 +220,7 @@ Web tab → **Reload**.
 ## 8. Smoke test
 
 ```
-curl -s "https://golfcoachnow.pythonanywhere.com/" ; echo
+curl -s "https://golfcoachnow.pythonanywhere.com/health" ; echo
 curl -s "https://golfcoachnow.pythonanywhere.com/videos/instructional?module=swing" ; echo
 curl -s "https://golfcoachnow.pythonanywhere.com/payments/unlock-status?device_id=deploy_check" ; echo
 curl -s -o /dev/null -w "app.html %{http_code}\n" "https://golfcoachnow.pythonanywhere.com/static/app.html"
@@ -228,7 +228,9 @@ curl -s -o /dev/null -w "app.html %{http_code}\n" "https://golfcoachnow.pythonan
 
 Expected:
 
-- health returns `{"status":"ok",...}`
+- `/health` returns `{"status":"ok",...}`. It moved off `/` when the root
+  became the web app: on a domain called `app`, somebody who types the bare
+  address expects the app rather than a status blob.
 - the video endpoint returns a url once `PUBLISH_VIDEOS.md` is done, `null`
   before that. **`null` is a correct answer, not a failure.**
 - unlock-status returns JSON. **A 404 here means the payments package failed to

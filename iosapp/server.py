@@ -52,6 +52,12 @@ MODULE_ENGINES = {
 
 VALID_MODULES = frozenset(MODULE_ENGINES.keys())
 
+# Where the static files actually are, resolved from this module rather than
+# from the working directory. Relative paths on this host have already
+# resolved somewhere unexpected once - there are two .env files and two
+# payments.db for exactly that reason - so this one is pinned.
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
 if payments_router is not None:
     app.include_router(payments_router)
     app.include_router(auth_router)
@@ -80,9 +86,41 @@ class AnalyticsEventRequest(BaseModel):
     payload: Optional[dict] = None
 
 
-@app.get("/")
+@app.get("/health")
 def health():
+    """Machine-readable liveness. Moved off / when the root became the app.
+
+    The deploy runbook checks this, and it is the first thing to look at when
+    the site appears to be down: it answers only if the process started, which
+    a broken import prevents.
+    """
     return {"status": "ok", "service": "GolfCoachNow API"}
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    """The web app.
+
+    The root used to answer with the health JSON. That was fine while the only
+    address was a hosting subdomain nobody would type; it is wrong on a domain
+    called app, where somebody who types it expects the app rather than a
+    status blob.
+
+    Falls back to the health answer if the page is not published, so a fresh
+    deployment that has not had its static files copied yet still says
+    something true rather than 404.
+    """
+    for name in ("app.html", "index.html"):
+        try:
+            with io.open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as page:
+                return page.read()
+        except OSError:
+            continue
+    return HTMLResponse(
+        "<!doctype html><title>Golf Coach Now</title>"
+        "<p>The service is running. The web app is not published on this host.",
+        status_code=200,
+    )
 
 
 def _with_correction_video(module: str, result: dict) -> dict:
@@ -672,13 +710,6 @@ _GO_PAGE = """<!DOCTYPE html>
 </div></div>
 <script>setTimeout(function(){{window.location.href="golfcoachnow://mode/{mode}"}},300)</script>
 </body></html>"""
-
-
-# Where the static files actually are, resolved from this module rather than
-# from the working directory. Relative paths on this host have already
-# resolved somewhere unexpected once - there are two .env files and two
-# payments.db for exactly that reason - so this one is pinned.
-_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 @app.get("/download", response_class=HTMLResponse)

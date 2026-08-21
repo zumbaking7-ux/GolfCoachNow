@@ -26,7 +26,8 @@ https://golfcoachnow.pythonanywhere.com
 ## Endpoints
 
 ### GET `/`
-Health check. Returns `{"status": "ok", "service": "GolfCoachNow API"}`.
+The web app. Health moved to `GET /health`, which returns
+`{"status": "ok", "service": "GolfCoachNow API"}`.
 
 ### POST `/wedge`, `/putt`, `/short-game`
 Analyze pre-computed fault scores for the respective module.
