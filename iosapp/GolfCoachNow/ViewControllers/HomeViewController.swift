@@ -191,63 +191,77 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         greetingCard.addSubview(questionLabel)
 
         NSLayoutConstraint.activate([
-            greetingAccent.leadingAnchor.constraint(equalTo: greetingCard.leadingAnchor, constant: 14),
-            greetingAccent.topAnchor.constraint(equalTo: greetingCard.topAnchor, constant: 14),
-            greetingAccent.bottomAnchor.constraint(equalTo: greetingCard.bottomAnchor, constant: -14),
-            greetingAccent.widthAnchor.constraint(equalToConstant: 3),
+            // The accent moved from a bar beside the greeting to a rule beneath
+            // the name, matching the approved design.
+            greetingLabel.topAnchor.constraint(equalTo: greetingCard.topAnchor, constant: 18),
+            greetingLabel.leadingAnchor.constraint(equalTo: greetingCard.leadingAnchor, constant: 16),
+            greetingLabel.trailingAnchor.constraint(equalTo: greetingCard.trailingAnchor, constant: -16),
 
-            greetingLabel.topAnchor.constraint(equalTo: greetingCard.topAnchor, constant: 14),
-            greetingLabel.leadingAnchor.constraint(equalTo: greetingAccent.trailingAnchor, constant: 12),
-            greetingLabel.trailingAnchor.constraint(equalTo: greetingCard.trailingAnchor, constant: -14),
+            greetingAccent.topAnchor.constraint(equalTo: greetingLabel.bottomAnchor, constant: 12),
+            greetingAccent.leadingAnchor.constraint(equalTo: greetingLabel.leadingAnchor),
+            greetingAccent.widthAnchor.constraint(equalToConstant: 132),
+            greetingAccent.heightAnchor.constraint(equalToConstant: 2),
 
-            questionLabel.topAnchor.constraint(equalTo: greetingLabel.bottomAnchor, constant: 4),
+            questionLabel.topAnchor.constraint(equalTo: greetingAccent.bottomAnchor, constant: 12),
             questionLabel.leadingAnchor.constraint(equalTo: greetingLabel.leadingAnchor),
             questionLabel.trailingAnchor.constraint(equalTo: greetingLabel.trailingAnchor),
-            questionLabel.bottomAnchor.constraint(equalTo: greetingCard.bottomAnchor, constant: -14),
+            questionLabel.bottomAnchor.constraint(equalTo: greetingCard.bottomAnchor, constant: -18),
         ])
     }
 
     private func updateGreeting() {
         // The name comes from the account. Anyone signed out, or signed in
         // before names were captured, is greeted as a golfer rather than with
-        // "Welcome, ." on an empty name.
+        // a greeting that has nobody in it.
         let stored = AuthManager.shared.name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let named = (stored?.isEmpty == false) ? stored : nil
+        let who = (stored?.isEmpty == false) ? stored! : "Golfer"
 
         let bold: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 24, weight: .bold),
+            .font: UIFont.systemFont(ofSize: 26, weight: .heavy),
             .foregroundColor: UIColor.white
         ]
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: named != nil ? "Welcome " : "Hi ", attributes: bold))
+        text.append(NSAttributedString(string: Self.timeOfDayGreeting() + ",
+", attributes: bold))
         // The full stop carries the name's colour rather than the label's.
         text.append(NSAttributedString(
-            string: (named ?? "Golfer") + ".",
+            string: who + ".",
             attributes: [
-                .font: UIFont.systemFont(ofSize: 24, weight: .bold),
+                .font: UIFont.systemFont(ofSize: 26, weight: .heavy),
                 .foregroundColor: Theme.green
             ]
         ))
+        greetingLabel.numberOfLines = 2
         greetingLabel.attributedText = text
+    }
+
+    /// Morning, afternoon or evening. A screen that says "Good morning" at
+    /// eleven at night is exactly the detail a reviewer notices.
+    private static func timeOfDayGreeting() -> String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case ..<12: return "Good morning"
+        case ..<18: return "Good afternoon"
+        default: return "Good evening"
+        }
     }
 
     // MARK: - Skill Cards
 
     private func setupSkillCards() {
         skillStack.addArrangedSubview(makeSkillCard(
-            title: "SWING LEARN",
-            description: "Watch the swing demonstration",
-            ctaTitle: "WATCH  →",
+            title: "SWING CORRECT",
+            description: "Analyze your swing. Get instant feedback.",
+            ctaTitle: "START SWING CORRECT  →",
             iconAsset: GolfModule.swing.cardIconAsset,
-            action: #selector(learnTapped(_:))
+            action: #selector(correctTapped(_:))
         ))
         skillStack.addArrangedSubview(makeSkillCard(
-            title: "SWING CORRECT",
-            description: "Learn the fundamentals",
-            ctaTitle: "START  →",
-            iconAsset: "icon_swing_white",
-            action: #selector(correctTapped(_:))
+            title: "SWING LEARN",
+            description: "Learn your swing. Get instant feedback.",
+            ctaTitle: "START SWING LEARN  →",
+            iconAsset: GolfModule.swing.cardIconAsset,
+            action: #selector(learnTapped(_:))
         ))
     }
 
@@ -324,22 +338,22 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     // MARK: - Action Row
 
     private func setupActionRow() {
-        // Connect on the left, Share on the right, as specified. The stack
-        // distributes them equally, so the two read as a matched pair.
+        // Share on the left, Connect on the right, per the approved design.
+        // The stack distributes them equally, so the two read as a matched pair.
+        let shareCard = makeActionCard(
+            icon: "icon_share",
+            title: "SHARE",
+            description: "Share Golf Coach Now.",
+            action: #selector(sendTapped)
+        )
         let connectCard = makeActionCard(
             icon: "icon_connect",
             title: "CONNECT",
-            description: "The founder welcomes your thoughts",
+            description: "Connect with the founder.",
             action: #selector(connectTapped)
         )
-        let shareCard = makeActionCard(
-            icon: "bubble.left.fill",
-            title: "SHARE",
-            description: "Send the app to a friend",
-            action: #selector(sendTapped)
-        )
-        actionStack.addArrangedSubview(connectCard)
         actionStack.addArrangedSubview(shareCard)
+        actionStack.addArrangedSubview(connectCard)
     }
 
     private func makeActionCard(icon: String, title: String, description: String, action: Selector) -> UIView {

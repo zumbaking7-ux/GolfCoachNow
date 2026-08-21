@@ -38,22 +38,24 @@ body{background:var(--bg)}
 .greeting{border-radius:12px;border:1px solid var(--green-border);background:var(--card);
 overflow:hidden;position:relative;box-shadow:0 4px 12px var(--green-glow)}
 .greeting .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.6;pointer-events:none}
-.greeting .inner{position:relative;display:flex;padding:12px;gap:10px}
-.greeting .bar{width:3px;min-height:56px;border-radius:1.5px;background:var(--green);flex-shrink:0}
-.greeting h2{font-size:20px;line-height:26px;font-weight:700;color:var(--white)}
-.greeting h2 span{color:var(--green)}
-.greeting p{font-size:12px;color:#b3b3b3;margin-top:2px}
+.greeting .inner{position:relative;padding:18px 16px}
+.greeting h2{font-size:26px;line-height:32px;font-weight:800;color:var(--white)}
+/* The name takes its own line, as in the approved design. */
+.greeting h2 span{color:var(--green);display:block}
+.greeting .rule{width:132px;height:2px;margin:12px 0 12px;border-radius:1px;
+background:var(--green);box-shadow:0 0 10px var(--green-glow)}
+.greeting p{font-size:14px;line-height:19px;color:#b3b3b3}
 
 .skills-row{display:flex;gap:6px;padding:0 12px;margin-top:8px;position:relative;z-index:1}
-.skill-card{flex:1;border-radius:12px;border:1px solid var(--green-border);background:var(--card);
-padding:8px 4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;
+.skill-card{flex:1;border-radius:14px;border:1px solid var(--green-border);background:var(--card);
+padding:10px 6px;display:flex;flex-direction:column;align-items:center;cursor:pointer;
 box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
 .skill-card:active{transform:scale(.96)}
 .skill-card img{width:52px;height:52px;border-radius:12px;object-fit:cover}
 .skill-card .name{font-size:13px;font-weight:800;margin-top:6px;text-align:center}
-.skill-card .desc{font-size:11px;color:var(--muted);text-align:center;height:28px;
-overflow:hidden;line-height:14px;margin-top:4px}
-.skill-card .cta-btn{width:100%;margin-top:5px;padding:5px 2px;border-radius:7px;
+.skill-card .desc{font-size:11px;color:var(--muted);text-align:center;
+line-height:14px;margin-top:4px}
+.skill-card .cta-btn{width:100%;margin-top:auto;padding:6px 2px;border-radius:7px;
 background:linear-gradient(to bottom,#8fc238,#6b9e24);border:1px solid #618c1f;
 font-size:9px;font-weight:800;color:#000;text-align:center;cursor:pointer;white-space:nowrap}
 .skill-card .cta-btn.sm{font-size:7px}
@@ -71,11 +73,11 @@ box-shadow:0 4px 16px var(--green-glow);transition:transform .15s}
 .talk-card img.arrow{width:16px;height:16px;object-fit:contain}
 
 .action-row{display:flex;gap:6px;padding:8px 12px 20px}
-.action-card{flex:1;height:72px;border-radius:12px;border:1px solid var(--green-border);
+.action-card{flex:1;height:72px;border-radius:14px;border:1px solid var(--green-border);
 background:var(--card);display:flex;align-items:center;padding:10px;gap:8px;cursor:pointer;
 box-shadow:0 4px 12px var(--green-glow);transition:transform .15s}
 .action-card:active{transform:scale(.96)}
-.action-card img.icon{width:30px;height:30px;border-radius:6px;object-fit:cover}
+.action-card img.icon{width:34px;height:34px;border-radius:6px;object-fit:cover}
 .action-card .info{flex:1}
 .action-card .info h4{font-size:12px;font-weight:700}
 .action-card .info p{font-size:10px;color:var(--muted);line-height:13px}
@@ -240,44 +242,42 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
     <div class="greeting">
       <img class="bg" src="/static/img/bg_pattern.png" alt="">
       <div class="inner">
-        <div class="bar"></div>
-        <div>
-          <h2 id="greeting-text">Hi <span>Golfer.</span></h2>
-          <p>What would you like<br>to learn today?</p>
-        </div>
+        <h2 id="greeting-text">Good morning, <span>Golfer.</span></h2>
+        <div class="rule"></div>
+        <p>What would you like<br>to learn today?</p>
       </div>
     </div>
   </div>
 
   <div class="skills-row">
+    <div class="skill-card" onclick="startCorrect()">
+      <img src="/static/img/ic_swing.png" alt="Swing Correct">
+      <div class="name">SWING CORRECT</div>
+      <div class="desc">Analyze your swing. Get instant feedback.</div>
+      <div class="cta-btn">START SWING CORRECT &rarr;</div>
+    </div>
     <div class="skill-card" onclick="startLearn()">
       <img src="/static/img/ic_swing.png" alt="Swing Learn">
       <div class="name">SWING LEARN</div>
-      <div class="desc">Watch the swing demonstration</div>
-      <div class="cta-btn">WATCH &rarr;</div>
-    </div>
-    <div class="skill-card" onclick="startCorrect()">
-      <img src="/static/img/ic_swing_white.png" alt="Swing Correct">
-      <div class="name">SWING CORRECT</div>
-      <div class="desc">Learn the fundamentals</div>
-      <div class="cta-btn">START &rarr;</div>
+      <div class="desc">Learn your swing. Get instant feedback.</div>
+      <div class="cta-btn">START SWING LEARN &rarr;</div>
     </div>
   </div>
 
   <div class="action-row safe-bottom">
+    <div class="action-card" onclick="openShareModal()">
+      <img class="icon" src="/static/img/ic_share_plane.png" alt="Share">
+      <div class="info">
+        <h4>SHARE</h4>
+        <p>Share Golf Coach Now.</p>
+      </div>
+      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
+    </div>
     <div class="action-card" onclick="openFounderModal()">
       <img class="icon" src="/static/img/ic_connect_people.png" alt="Connect">
       <div class="info">
         <h4>CONNECT</h4>
-        <p>The founder welcomes your thoughts</p>
-      </div>
-      <img class="arrow" src="/static/img/ic_arrow.png" alt="">
-    </div>
-    <div class="action-card" onclick="openShareModal()">
-      <img class="icon" src="/static/img/ic_share.png" alt="Share">
-      <div class="info">
-        <h4>SHARE</h4>
-        <p>Send the app to a friend</p>
+        <p>Connect with the founder.</p>
       </div>
       <img class="arrow" src="/static/img/ic_arrow.png" alt="">
     </div>
@@ -304,7 +304,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
       <div class="text" id="cam-correction-text"></div>
       <div class="share-row">
         <button class="share-btn" onclick="shareCorrection()">
-          <img src="/static/img/ic_share.png" alt="">Share
+          <img src="/static/img/ic_share_plane.png" alt="">Share
         </button>
       </div>
     </div>
@@ -333,7 +333,7 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
   <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>Unlimited swing analysis</span></div>
   <div class="feature-row"><img src="/static/img/ic_pulse.png" alt=""><span>Instant AI correction on every swing</span></div>
   <div class="feature-row"><img src="/static/img/ic_swing.png" alt=""><span>A correction video with every session</span></div>
-  <div class="feature-row"><img src="/static/img/ic_share.png" alt=""><span>Share your corrections</span></div>
+  <div class="feature-row"><img src="/static/img/ic_share_plane.png" alt=""><span>Share your corrections</span></div>
 </div>
 <div class="price">$14.99</div>
 <div class="per">per month</div>
@@ -468,13 +468,17 @@ function updateGreeting() {
   const safe = name.replace(/[&<>"]/g, c => (
     {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]
   ));
-  // Signed in and named gets a welcome; everyone else is a golfer. A signed in
-  // account with no name yet falls to the greeting rather than to "Welcome, ."
+  // A signed in account with no name yet falls back to Golfer rather than
+  // rendering a greeting with nobody in it.
+  const who = (authToken && safe) ? safe : 'Golfer';
+  // Time of day, because a screen that says "Good morning" at eleven at night
+  // is exactly the detail a journalist notices.
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   // The full stop sits inside the green span, so it belongs to the name
   // rather than trailing after it in white.
-  document.getElementById('greeting-text').innerHTML = (authToken && safe)
-    ? 'Welcome <span>' + safe + '.</span>'
-    : 'Hi <span>Golfer.</span>';
+  document.getElementById('greeting-text').innerHTML =
+    part + ', <span>' + who + '.</span>';
 }
 updateGreeting();
 

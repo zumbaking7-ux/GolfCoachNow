@@ -139,39 +139,38 @@ fun HomeScreen(
                     contentScale = ContentScale.Crop,
                     alpha = 0.6f,
                 )
-                Row(
-                    modifier = Modifier.padding(14.dp),
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
                 ) {
+                    Text(
+                        text = buildAnnotatedString {
+                            // From the account, never derived from the email
+                            // address. Deriving it greeted
+                            // waleflutter@gmail.com as "waleflutter".
+                            val who = userName?.takeIf { it.isNotBlank() } ?: "Golfer"
+                            val white = SpanStyle(color = Color.White, fontWeight = FontWeight.ExtraBold)
+                            val green = SpanStyle(color = GolfGreen, fontWeight = FontWeight.ExtraBold)
+                            withStyle(white) { append(timeOfDayGreeting() + ",\n") }
+                            withStyle(green) { append("$who.") }
+                        },
+                        fontSize = 26.sp,
+                        lineHeight = 32.sp,
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Box(
                         modifier = Modifier
-                            .width(3.dp)
-                            .height(64.dp)
-                            .clip(RoundedCornerShape(1.5.dp))
+                            .width(132.dp)
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
                             .background(GolfGreen),
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = buildAnnotatedString {
-                                // From the account, never derived from the email
-                                // address. Deriving it greeted
-                                // waleflutter@gmail.com as "waleflutter".
-                                val who = userName?.takeIf { it.isNotBlank() }
-                                val white = SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)
-                                val green = SpanStyle(color = GolfGreen, fontWeight = FontWeight.Bold)
-                                withStyle(white) { append(if (who != null) "Welcome " else "Hi ") }
-                                withStyle(green) { append((who ?: "Golfer") + ".") }
-                            },
-                            fontSize = 24.sp,
-                            lineHeight = 30.sp,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "What would you like\nto learn today?",
-                            fontSize = 14.sp,
-                            color = Color(0xFFB3B3B3),
-                        )
-                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "What would you like\nto learn today?",
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp,
+                        color = Color(0xFFB3B3B3),
+                    )
                 }
             }
         }
@@ -185,25 +184,25 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SkillCard(
+                title = "SWING CORRECT",
+                description = "Analyze your swing. Get instant feedback.",
+                ctaLabel = "START SWING CORRECT →",
+                iconRes = R.drawable.ic_swing,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    ApiClient.trackEvent("module_selected", GolfModule.SWING)
+                    onCorrect()
+                },
+            )
+            SkillCard(
                 title = "SWING LEARN",
-                description = "Watch the swing demonstration",
-                ctaLabel = "WATCH →",
+                description = "Learn your swing. Get instant feedback.",
+                ctaLabel = "START SWING LEARN →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),
                 onClick = {
                     ApiClient.trackEvent("module_selected", GolfModule.SWING)
                     onLearn()
-                },
-            )
-            SkillCard(
-                title = "SWING CORRECT",
-                description = "Learn the fundamentals",
-                ctaLabel = "START →",
-                iconRes = R.drawable.ic_swing_white,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    ApiClient.trackEvent("module_selected", GolfModule.SWING)
-                    onCorrect()
                 },
             )
         }
@@ -218,20 +217,31 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ActionCard(
-                iconRes = R.drawable.ic_connect_people,
-                title = "CONNECT",
-                description = "The founder welcomes your thoughts",
-                modifier = Modifier.weight(1f),
-                onClick = { showFounderDialog = true },
-            )
-            ActionCard(
-                iconRes = R.drawable.ic_share,
+                iconRes = R.drawable.ic_share_plane,
                 title = "SHARE",
-                description = "Send the app to a friend",
+                description = "Share Golf Coach Now.",
                 modifier = Modifier.weight(1f),
                 onClick = { showShareDialog = true },
             )
+            ActionCard(
+                iconRes = R.drawable.ic_connect_people,
+                title = "CONNECT",
+                description = "Connect with the founder.",
+                modifier = Modifier.weight(1f),
+                onClick = { showFounderDialog = true },
+            )
         }
+    }
+}
+
+/** Morning, afternoon or evening, because a screen that says "Good morning"
+ *  at eleven at night is exactly the detail a reviewer notices. */
+private fun timeOfDayGreeting(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 12 -> "Good morning"
+        hour < 18 -> "Good afternoon"
+        else -> "Good evening"
     }
 }
 
@@ -276,7 +286,7 @@ private fun SkillCard(
             fontSize = 11.sp,
             color = TextMuted,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 3,
             lineHeight = 15.sp,
         )
         Spacer(Modifier.height(6.dp))
@@ -299,7 +309,7 @@ private fun SkillCard(
         ) {
             Text(
                 text = ctaLabel,
-                fontSize = 11.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.Black,
                 maxLines = 1,

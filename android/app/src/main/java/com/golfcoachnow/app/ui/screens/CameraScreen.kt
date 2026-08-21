@@ -230,7 +230,7 @@ fun CameraScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.ic_share),
+                            painter = painterResource(id = R.drawable.ic_share_plane),
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             contentScale = ContentScale.Fit,

@@ -104,7 +104,7 @@ fun PaywallScreen(
             FeatureRow(R.drawable.ic_swing, "Unlimited swing analysis")
             FeatureRow(R.drawable.ic_pulse, "Instant AI correction on every swing")
             FeatureRow(R.drawable.ic_swing, "A correction video with every session")
-            FeatureRow(R.drawable.ic_share, "Share your corrections")
+            FeatureRow(R.drawable.ic_share_plane, "Share your corrections")
         }
 
         Spacer(Modifier.weight(1f))
