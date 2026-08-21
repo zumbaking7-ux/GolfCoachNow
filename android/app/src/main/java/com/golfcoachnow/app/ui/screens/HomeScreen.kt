@@ -118,10 +118,11 @@ fun HomeScreen(
             }
         }
 
-        // Greeting card overlapping banner
+        // Greeting card below the banner, not over it. It used to be pulled up
+        // 24dp, which hid the glow sweep along the bottom of the artwork.
         Box(
             modifier = Modifier
-                .offset(y = (-24).dp)
+                .offset(y = 10.dp)
                 .padding(horizontal = 16.dp),
         ) {
             Box(
@@ -178,7 +179,7 @@ fun HomeScreen(
         // Skill cards row
         Row(
             modifier = Modifier
-                .offset(y = (-12).dp)
+                .offset(y = 22.dp)
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),

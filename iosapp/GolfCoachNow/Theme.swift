@@ -20,7 +20,7 @@ enum Theme {
     static let iconBoxSize: CGFloat = 48
     static let iconBoxRadius: CGFloat = 12
     static let ctaRadius: CGFloat = 8
-    static let greetingOverlap: CGFloat = -24
+    static let greetingOverlap: CGFloat = 10
 
     static func timeGreeting() -> String {
         let hour = Calendar.current.component(.hour, from: Date())
