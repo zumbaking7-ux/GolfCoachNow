@@ -1,0 +1,79 @@
+name: iOS build
+
+# The iOS app has never been compiled. There is no Mac on this project, which
+# is why: every change to it so far has been checked structurally - brace
+# balance, no dangling references - and structural checks do not catch type
+# errors, missing imports, or a hand-written project file that Xcode dislikes.
+#
+# This compiles it on a hosted Mac. Unsigned and on the simulator SDK, so it
+# needs no Apple account, no certificates and no secrets - the question here is
+# only "does this code build", and that question is worth answering before
+# anybody spends time on provisioning profiles.
+#
+# macOS runners are free for public repositories, and this one is public.
+
+on:
+  push:
+    branches: [v1-pipeline, main]
+    paths:
+      - 'iosapp/GolfCoachNow/**'
+      - 'iosapp/GolfCoachNow.xcodeproj/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    paths:
+      - 'iosapp/GolfCoachNow/**'
+      - 'iosapp/GolfCoachNow.xcodeproj/**'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: Compile (unsigned)
+    runs-on: macos-14
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: List what Xcode can see
+        working-directory: iosapp
+        run: xcodebuild -list -project GolfCoachNow.xcodeproj
+
+      - name: Build
+        working-directory: iosapp
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project GolfCoachNow.xcodeproj \
+            -scheme GolfCoachNow \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee build.log
+
+      - name: Summarise warnings
+        if: always()
+        working-directory: iosapp
+        run: |
+          if [ -f build.log ]; then
+            echo "### iOS build" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "(warning|error):" build.log | sort -u | head -60 >> "$GITHUB_STEP_SUMMARY" || echo "no warnings or errors" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the log either way
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: iosapp/build.log
+          if-no-files-found: ignore
