@@ -59,16 +59,24 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             | tee build.log
 
-      - name: Summarise warnings
+      # Re-emit each compiler error as a workflow annotation. Annotations are
+      # readable through the public checks API, whereas raw logs need repo
+      # admin - so this is what lets a failure be diagnosed without somebody
+      # copying the log out of a browser by hand.
+      - name: Surface the errors
         if: always()
         working-directory: iosapp
         run: |
-          if [ -f build.log ]; then
-            echo "### iOS build" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            grep -E "(warning|error):" build.log | sort -u | head -60 >> "$GITHUB_STEP_SUMMARY" || echo "no warnings or errors" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          if [ ! -f build.log ]; then exit 0; fi
+          grep -E "error:" build.log | sort -u | head -40 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          {
+            echo "### iOS build"
+            echo '```'
+            grep -E "(warning|error):" build.log | sort -u | head -60 || echo "none"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the log either way
         if: always()
