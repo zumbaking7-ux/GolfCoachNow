@@ -166,7 +166,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             // to a constant, so no screen size crops the golfer out of frame.
             bannerImageView.heightAnchor.constraint(
                 equalTo: bannerImageView.widthAnchor,
-                multiplier: 817.0 / 1926.0
+                multiplier: 817.0 / 2095.0
             ),
 
             greetingCard.topAnchor.constraint(equalTo: bannerImageView.bottomAnchor, constant: Theme.greetingOverlap),
@@ -321,11 +321,11 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 6),
             titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -6),
 
-            descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             descLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 6),
             descLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -6),
 
-            ctaContainer.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 10),
+            ctaContainer.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 14),
             ctaContainer.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
             ctaContainer.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8),
             ctaContainer.heightAnchor.constraint(equalToConstant: 30),

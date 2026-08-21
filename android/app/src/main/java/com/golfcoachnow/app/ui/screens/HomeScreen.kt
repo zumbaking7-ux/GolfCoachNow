@@ -86,7 +86,7 @@ fun HomeScreen(
                 .padding(horizontal = 12.dp)
                 // The image's own ratio, so the box is never a different shape
                 // from the picture and the golfer keeps his club.
-                .aspectRatio(1926f / 817f)
+                .aspectRatio(2095f / 817f)
                 .clip(RoundedCornerShape(14.dp)),
             contentScale = ContentScale.Fit,
         )
@@ -216,7 +216,7 @@ fun HomeScreen(
         // two cards carry equal weight so they read as a matched pair.
         Row(
             modifier = Modifier
-                .padding(top = 8.dp)
+                .padding(top = 12.dp)
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -266,7 +266,7 @@ private fun SkillCard(
             .border(1.dp, GolfGreenBorder, RoundedCornerShape(14.dp))
             .background(DarkCard)
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 6.dp),
+            .padding(vertical = 14.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Image(
@@ -277,7 +277,7 @@ private fun SkillCard(
                 .clip(RoundedCornerShape(12.dp)),
             contentScale = ContentScale.Crop,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             text = title,
             fontSize = 13.sp,
@@ -285,7 +285,7 @@ private fun SkillCard(
             color = Color.White,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = description,
             fontSize = 11.sp,
@@ -294,7 +294,7 @@ private fun SkillCard(
             maxLines = 3,
             lineHeight = 15.sp,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(14.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -309,7 +309,7 @@ private fun SkillCard(
                         ),
                     ),
                 )
-                .padding(vertical = 6.dp),
+                .padding(vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
