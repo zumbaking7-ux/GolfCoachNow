@@ -1,3 +1,23 @@
+import java.util.Properties
+
+// Signing credentials, read from keystore.properties (gitignored) or from the
+// environment on a build machine that has no file to read.
+//
+// They used to be written into this file in plain text. The repository is
+// public, so the store password, key password and alias were all readable by
+// anyone - and the keystore they unlock is the only thing that can ever update
+// the Play listing, because Play App Signing was never enabled. The .jks was
+// never committed, so the key itself is not compromised, but half of what
+// protects it was published and should be treated as known.
+val keystoreProperties = Properties()
+val keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.inputStream().use { stream -> keystoreProperties.load(stream) }
+}
+
+fun secret(key: String, env: String): String =
+    keystoreProperties.getProperty(key) ?: System.getenv(env) ?: ""
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -22,12 +42,28 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://golfcoachnow.pythonanywhere.com\"")
     }
 
+    // Signing credentials come from keystore.properties, which is gitignored,
+    // or from the environment when a build machine has no file to read.
+    //
+    // They used to be written here in plain text. This repository is public,
+    // so the store password, the key password and the alias were all readable
+    // by anyone - and the keystore they unlock is the only thing that can ever
+    // update the Play listing, because Play App Signing was never switched on.
+    // The .jks itself was never committed, so the key is not compromised, but
+    // half of what protects it was published and should be treated as known.
+    val storeFileName = secret("storeFile", "ANDROID_KEYSTORE_FILE")
+        .ifEmpty { "golfcoachnow-release.jks" }
+    val haveKeystore = file(storeFileName).exists() &&
+        secret("storePassword", "ANDROID_KEYSTORE_PASSWORD").isNotEmpty()
+
     signingConfigs {
         create("release") {
-            storeFile = file("golfcoachnow-release.jks")
-            storePassword = "golfcoach2026"
-            keyAlias = "golfcoachnow"
-            keyPassword = "golfcoach2026"
+            if (haveKeystore) {
+                storeFile = file(storeFileName)
+                storePassword = secret("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = secret("keyAlias", "ANDROID_KEY_ALIAS")
+                keyPassword = secret("keyPassword", "ANDROID_KEY_PASSWORD")
+            }
         }
     }
 
@@ -35,7 +71,10 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            // Unsigned rather than broken when there are no credentials, so a
+            // machine without the keystore still compiles and still tells you
+            // whether the code is sound.
+            signingConfig = if (haveKeystore) signingConfigs.getByName("release") else null
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

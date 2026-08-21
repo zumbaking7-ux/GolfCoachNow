@@ -10,6 +10,7 @@ iosapp/android/
 
 # Keystores
 *.jks
+keystore.properties
 *.keystore
 
 # Secrets
