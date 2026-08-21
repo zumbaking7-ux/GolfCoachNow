@@ -81,8 +81,10 @@ fun HomeScreen(
             contentDescription = "GolfCoachNow Banner",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp),
-            contentScale = ContentScale.Crop,
+                // The image's own ratio, so the box is never a different shape
+                // from the picture and the golfer keeps his club.
+                .aspectRatio(1926f / 817f),
+            contentScale = ContentScale.Fit,
         )
 
         // Account row

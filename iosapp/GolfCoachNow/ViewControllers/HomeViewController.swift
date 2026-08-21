@@ -21,7 +21,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     private let bannerImageView: UIImageView = {
         let iv = UIImageView(image: UIImage(named: "banner"))
         iv.translatesAutoresizingMaskIntoConstraints = false
-        iv.contentMode = .scaleAspectFill
+        iv.contentMode = .scaleAspectFit
         iv.clipsToBounds = true
         return iv
     }()
@@ -159,7 +159,12 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             bannerImageView.topAnchor.constraint(equalTo: contentView.topAnchor),
             bannerImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bannerImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            bannerImageView.heightAnchor.constraint(equalToConstant: Theme.bannerHeight),
+            // Tied to the width at the image's own ratio rather than pinned
+            // to a constant, so no screen size crops the golfer out of frame.
+            bannerImageView.heightAnchor.constraint(
+                equalTo: bannerImageView.widthAnchor,
+                multiplier: 817.0 / 1926.0
+            ),
 
             greetingCard.topAnchor.constraint(equalTo: bannerImageView.bottomAnchor, constant: Theme.greetingOverlap),
             greetingCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: Theme.screenPadding),

@@ -20,7 +20,6 @@ enum Theme {
     static let iconBoxSize: CGFloat = 48
     static let iconBoxRadius: CGFloat = 12
     static let ctaRadius: CGFloat = 8
-    static let bannerHeight: CGFloat = 180
     static let greetingOverlap: CGFloat = -24
 
     static func timeGreeting() -> String {
