@@ -53,8 +53,7 @@ uploads/
 # belong in it. These live with the contractor, not with the product.
 AUDIT.md
 requirements_register.md
-client_message_*.md
-client_reply_*.md
+client_*.md
 handoff_request_*.md
 reply_to_*.md
 scope_*.md
