@@ -27,7 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 WEBAPP = ROOT / "webapp"
-PAGES = ["index.html", "app.html"]
+PAGES = ["index.html", "app.html", "download.html"]
 
 # src="/static/img/thing.png" with an optional ?v=... already on it.
 REF = re.compile(r'(/static/img/([A-Za-z0-9_.-]+\.(?:png|jpg|jpeg|webp|svg)))(\?v=[0-9a-f]+)?')

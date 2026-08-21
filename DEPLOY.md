@@ -137,6 +137,7 @@ mkdir -p mysite/static/img
 cp deploy-tmp/webapp/static/img/*.png mysite/static/img/
 cp deploy-tmp/webapp/index.html mysite/static/app.html
 cp deploy-tmp/webapp/index.html mysite/static/index.html
+cp deploy-tmp/webapp/download.html mysite/static/download.html
 ls mysite/static/img/*.png | wc -l
 echo "web app copied"
 ```
@@ -160,6 +161,36 @@ browser holding yesterday's banner to fetch today's; without it, anybody who
 opened the app before this deploy would keep seeing the old build. Run
 `python3 stamp_assets.py` locally after changing any image, or the suffix goes
 stale and the caching problem comes back.
+
+---
+
+## 5b. The Android test build
+
+The APK is not in the repository. It is 22 MB of build output and every clone
+would carry it forever, so it is uploaded by hand.
+
+PythonAnywhere **Files** tab, into `/home/golfcoachnow/mysite/static/download/`,
+creating that folder if it does not exist:
+
+| File | Size |
+| --- | --- |
+| `golfcoachnow.apk` | ~22 MB |
+
+It is on the build machine under `webapp/static/download/` in this repository.
+
+Then check it is really being served, because a 404 here is a download page
+that looks perfectly fine and hands testers nothing:
+
+```
+curl -s -o /dev/null -w "apk %{http_code}  %{size_download} bytes\n" \
+  "https://golfcoachnow.pythonanywhere.com/static/download/golfcoachnow.apk"
+```
+
+The link to share is `/static/download.html`.
+
+**This is the debug build.** A debug-signed app cannot be upgraded in place by
+a release-signed one, so anybody testing this will have to uninstall before
+installing the eventual Play Store build. Say so when you send the link.
 
 ---
 
