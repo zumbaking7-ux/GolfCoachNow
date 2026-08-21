@@ -30,7 +30,12 @@ body{background:var(--bg)}
 
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
 .screen.active{display:flex}
-.scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+.scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;
+/* Scrolls, but never draws a bar. Phones use overlay scrollbars and show
+   nothing anyway; a desktop browser would otherwise take 15px out of the
+   content width and sit a grey track down the side of the phone frame. */
+scrollbar-width:none;-ms-overflow-style:none}
+.scrollable::-webkit-scrollbar{width:0;height:0;display:none}
 
 /* ── Home ── */
 .banner{display:block;width:calc(100% - 24px);margin:0 auto;
