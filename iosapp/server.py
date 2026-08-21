@@ -95,7 +95,10 @@ def _with_correction_video(module: str, result: dict) -> dict:
 
 
 @app.get("/videos/instructional")
-def get_instructional_video(module: str = Query("swing")):
+def get_instructional_video(
+    module: str = Query("swing"),
+    screen: str = Query("learn", pattern="^(learn|correct)$"),
+):
     """The clip that plays when someone taps an engine button.
 
     A null url is a valid answer and means the asset is not published yet. The
@@ -104,7 +107,7 @@ def get_instructional_video(module: str = Query("swing")):
     """
     if module not in VALID_MODULES:
         raise HTTPException(400, f"Invalid module. Options: {', '.join(VALID_MODULES)}")
-    return {"module": module, "url": instructional_url(module)}
+    return {"module": module, "screen": screen, "url": instructional_url(module, screen)}
 
 
 @app.get("/entitlement")

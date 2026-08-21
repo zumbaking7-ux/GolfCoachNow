@@ -135,11 +135,14 @@ object ApiClient {
             }
         }
 
-    suspend fun getInstructionalVideo(module: GolfModule): Result<InstructionalVideoResponse> =
+    suspend fun getInstructionalVideo(
+        module: GolfModule,
+        screen: String = "learn",
+    ): Result<InstructionalVideoResponse> =
         withContext(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
-                    .url("$baseUrl/videos/instructional?module=${module.uploadParam}")
+                    .url("$baseUrl/videos/instructional?module=${module.uploadParam}&screen=$screen")
                     .get()
                     .build()
 

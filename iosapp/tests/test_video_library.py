@@ -117,6 +117,9 @@ def test_endpoint_returns_the_clip_for_a_module(client, hosted):
     assert response.status_code == 200
     assert response.json() == {
         "module": "putt",
+        # Echoed back so a client can tell which clip it was given, and so a
+        # request that omitted the parameter is visibly the lesson.
+        "screen": "learn",
         "url": f"{CDN}/instructional/all_modes.mp4",
     }
 
@@ -172,3 +175,44 @@ def test_the_written_correction_survives_alongside_the_video(client, hosted):
     body = response.json()
     assert body["correction"]
     assert body["correction_video_url"]
+
+
+# --- The two swing buttons open different clips --------------------------
+
+
+def test_learn_and_correct_do_not_open_the_same_clip(hosted):
+    """The bug this pins: both buttons asked for module=swing and got the
+    same file, so Swing Correct opened the lesson instead of the clip about
+    framing the shot."""
+    learn = video_library.instructional_url("swing", "learn")
+    correct = video_library.instructional_url("swing", "correct")
+
+    assert learn == f"{CDN}/instructional/learn_swing.mp4"
+    assert correct == f"{CDN}/instructional/all_modes.mp4"
+    assert learn != correct
+
+
+def test_asking_without_a_screen_still_gets_the_lesson(hosted):
+    """Builds already in testers' hands ask without the parameter. They were
+    shipped opening the lesson, and a default that changed under them would
+    alter an installed app from the server."""
+    assert video_library.instructional_url("swing") == (
+        video_library.instructional_url("swing", "learn")
+    )
+
+
+def test_the_endpoint_answers_per_screen(client, hosted):
+    learn = client.get("/videos/instructional", params={"module": "swing", "screen": "learn"})
+    correct = client.get("/videos/instructional", params={"module": "swing", "screen": "correct"})
+
+    assert learn.status_code == 200 and correct.status_code == 200
+    assert learn.json()["url"].endswith("learn_swing.mp4")
+    assert correct.json()["url"].endswith("all_modes.mp4")
+
+
+def test_a_screen_it_does_not_recognise_is_refused(client, hosted):
+    """Rather than quietly falling back, which would hide a client sending
+    the wrong thing."""
+    assert client.get(
+        "/videos/instructional", params={"module": "swing", "screen": "nonsense"}
+    ).status_code == 422

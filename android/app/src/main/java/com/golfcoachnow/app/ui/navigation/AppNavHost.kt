@@ -69,8 +69,8 @@ fun AppNavHost() {
             val next = backStackEntry.arguments?.getString("next") ?: Routes.NEXT_HOME
             val context = LocalContext.current
 
-            // Swing Correct plays the lesson and then records. Swing Learn ends
-            // with the lesson. The clip itself is the same one either way.
+            // Swing Correct plays its clip and then records. Swing Learn ends
+            // with its own. They are different clips, chosen from `next` below.
             val goOn: () -> Unit = if (next == Routes.NEXT_CAMERA) {
                 {
                     // Replace the video in the back stack rather than stacking
@@ -86,6 +86,10 @@ fun AppNavHost() {
 
             InstructionalVideoScreen(
                 module = module,
+                // The route already knows which button opened this, and the
+                // two play different clips: Swing Learn opens the lesson,
+                // Swing Correct opens the clip about framing the shot.
+                screen = if (next == Routes.NEXT_CAMERA) "correct" else "learn",
                 onFinished = goOn,
                 onUnavailable = {
                     // Ahead of the camera a missing clip is skipped in silence;

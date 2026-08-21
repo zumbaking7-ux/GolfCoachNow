@@ -432,13 +432,13 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     @objc private func learnTapped(_ gesture: UITapGestureRecognizer) {
         bounce(gesture.view)
         APIClient.shared.trackEvent("module_selected", module: .swing)
-        playLesson()
+        playLesson(screen: "learn")
     }
 
     @objc private func correctTapped(_ gesture: UITapGestureRecognizer) {
         bounce(gesture.view)
         APIClient.shared.trackEvent("module_selected", module: .swing)
-        playLesson(then: { [weak self] in
+        playLesson(screen: "correct", then: { [weak self] in
             self?.navigationController?.pushViewController(
                 CameraViewController(module: .swing),
                 animated: true
@@ -456,18 +456,20 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         }
     }
 
-    /// Plays the lesson clip, then runs `next` if there is one.
+    /// Plays the opening clip for one of the two buttons, then runs `next`.
     ///
-    /// Swing Correct passes a continuation and ends at the camera; Swing Learn
-    /// passes none and ends with the lesson. Version 1 ships one instructional
-    /// video, shared across modes.
+    /// The clip differs by button, which is the point of `screen`. Swing Learn
+    /// opens the lesson and ends there. Swing Correct opens the general clip
+    /// about framing the shot and continues to the camera - somebody about to
+    /// record needs to know where to put the phone, not to sit through a
+    /// lesson they may have just watched.
     ///
     /// When it is not published yet the two want opposite things. Ahead of the
     /// camera the clip is skipped in silence, because recording must never wait
     /// on a coaching video. Reached on its own it has to be reported, or Swing
     /// Learn is a button that quietly does nothing.
-    private func playLesson(then next: (() -> Void)? = nil) {
-        APIClient.shared.fetchInstructionalVideo(module: .swing) { [weak self] result in
+    private func playLesson(screen: String, then next: (() -> Void)? = nil) {
+        APIClient.shared.fetchInstructionalVideo(module: .swing, screen: screen) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
 

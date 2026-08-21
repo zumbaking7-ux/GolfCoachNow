@@ -35,15 +35,29 @@ BASE_URL = os.environ.get("VIDEO_BASE_URL", "").rstrip("/")
 # one-line change here, with nothing else in the pipeline or the apps touched.
 _SHARED_INSTRUCTIONAL = "instructional/all_modes.mp4"
 
-# Swing has its own lesson now - a real coach demonstrating grip, stance and
-# the full swing, filmed for this screen. Putt and short game keep the older
-# shared clip; they are not reachable in Version 1, and pointing them at a
-# swing lesson would be worse than pointing them at something generic.
-INSTRUCTIONAL = {
+# The two doors onto the swing play different clips, and this is the whole of
+# the difference between them.
+#
+# Swing Learn opens the lesson: a real coach demonstrating grip, stance and the
+# full swing, filmed for that screen.
+LESSON = {
     "swing": "instructional/learn_swing.mp4",
     "putt": _SHARED_INSTRUCTIONAL,
     "short_game": _SHARED_INSTRUCTIONAL,
 }
+
+# Swing Correct opens the general clip before the camera. It covers how to
+# frame the shot, which is what somebody about to record needs - not a lesson
+# they may have just watched.
+INTRO = {
+    "swing": _SHARED_INSTRUCTIONAL,
+    "putt": _SHARED_INSTRUCTIONAL,
+    "short_game": _SHARED_INSTRUCTIONAL,
+}
+
+# Kept so nothing that imported the old name breaks. LESSON is what it always
+# resolved to.
+INSTRUCTIONAL = LESSON
 
 # The correction clip for each mode. This is the whole of Version 1.
 #
@@ -82,9 +96,16 @@ def _resolve(path):
     return BASE_URL + "/" + path
 
 
-def instructional_url(module):
-    """The clip that plays when someone taps an engine button."""
-    return _resolve(INSTRUCTIONAL.get(module))
+def instructional_url(module, screen="learn"):
+    """The clip that plays when someone taps one of the two swing buttons.
+
+    `screen` is which button they tapped, "learn" or "correct". It defaults to
+    "learn" on purpose: builds already in testers' hands ask without it, and
+    that is the behaviour they were shipped with. A default that changed under
+    them would alter an installed app from the server.
+    """
+    table = INTRO if screen == "correct" else LESSON
+    return _resolve(table.get(module))
 
 
 def correction_url(module, fault):

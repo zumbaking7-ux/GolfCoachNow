@@ -821,9 +821,9 @@ function playVideo(url, onFinished) {
 // Swing Learn and Swing Correct are two doors onto the same module. Learn
 // plays the lesson and stops; Correct goes straight to the camera. The golfer
 // picked one, so neither leads into the other.
-async function lessonUrl() {
+async function introUrl(which) {
   try {
-    const res = await fetch(API + '/videos/instructional?module=swing');
+    const res = await fetch(API + '/videos/instructional?module=swing&screen=' + which);
     if (res.ok) return (await res.json()).url || null;
   } catch (e) {
     // Treated as "no video published", which is the same outcome for the user.
@@ -831,10 +831,12 @@ async function lessonUrl() {
   return null;
 }
 
-// Learn ends with the lesson. Correct plays the same lesson first and then
-// opens the camera, so the golfer sees it done before being asked to do it.
+// The two buttons play different clips. Learn opens the lesson and ends
+// there. Correct opens the general clip about framing the shot and then the
+// camera - somebody about to record needs to know where to put the phone, not
+// to sit through a lesson they may have just watched.
 async function startLearn() {
-  const url = await lessonUrl();
+  const url = await introUrl('learn');
   if (url) playVideo(url, goHome);
   else toast('The lesson video is on its way. Try Swing Correct in the meantime.');
 }
@@ -842,7 +844,7 @@ async function startLearn() {
 // A missing lesson must never block recording, so this falls straight through
 // to the camera rather than reporting anything.
 async function startCorrect() {
-  const url = await lessonUrl();
+  const url = await introUrl('correct');
   if (url) playVideo(url, () => openCamera('swing'));
   else openCamera('swing');
 }

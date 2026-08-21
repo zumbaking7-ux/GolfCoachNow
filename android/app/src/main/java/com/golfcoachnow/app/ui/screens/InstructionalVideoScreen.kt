@@ -31,17 +31,20 @@ import com.golfcoachnow.app.ui.theme.GolfGreen
 @Composable
 fun InstructionalVideoScreen(
     module: GolfModule,
+    /** Which button opened this: "learn" or "correct". They play different
+     *  clips - the lesson, or the general clip about framing the shot. */
+    screen: String,
     onFinished: () -> Unit,
     onUnavailable: () -> Unit = onFinished,
 ) {
     var url by remember { mutableStateOf<String?>(null) }
     var resolved by remember { mutableStateOf(false) }
 
-    LaunchedEffect(module) {
+    LaunchedEffect(module, screen) {
         // A failed request is treated exactly like an unpublished video. The
         // golfer came here to record, and a coaching clip is not worth blocking
         // that on.
-        url = ApiClient.getInstructionalVideo(module)
+        url = ApiClient.getInstructionalVideo(module, screen)
             .getOrNull()
             ?.url
             ?.takeIf { it.isNotBlank() }

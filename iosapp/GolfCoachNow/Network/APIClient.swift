@@ -395,13 +395,20 @@ final class APIClient {
         }.resume()
     }
 
-    func fetchInstructionalVideo(module: GolfModule, completion: @escaping (Result<InstructionalVideoResponse, Error>) -> Void) {
+    func fetchInstructionalVideo(
+        module: GolfModule,
+        screen: String = "learn",
+        completion: @escaping (Result<InstructionalVideoResponse, Error>) -> Void
+    ) {
         guard var components = URLComponents(string: APIConfig.baseURL + "/videos/instructional") else {
             completion(.failure(APIError.invalidURL))
             return
         }
         components.queryItems = [
             URLQueryItem(name: "module", value: module.uploadModuleParam),
+            // Which button opened this. The two play different clips: the
+            // lesson, or the general clip about framing the shot.
+            URLQueryItem(name: "screen", value: screen),
         ]
 
         guard let url = components.url else {
