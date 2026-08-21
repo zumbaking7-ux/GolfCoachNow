@@ -133,17 +133,33 @@ there before.
 
 ```
 cd /home/golfcoachnow
+mkdir -p mysite/static/img
+cp deploy-tmp/webapp/static/img/*.png mysite/static/img/
 cp deploy-tmp/webapp/index.html mysite/static/app.html
 cp deploy-tmp/webapp/index.html mysite/static/index.html
-mkdir -p mysite/static/img
-cp deploy-tmp/webapp/static/img/ic_connect_people.png mysite/static/img/
-cp deploy-tmp/webapp/static/img/ic_swing_white.png    mysite/static/img/
+ls mysite/static/img/*.png | wc -l
 echo "web app copied"
 ```
 
-Both filenames, because the live site is served from `app.html` and
-`index.html` is what the directory root resolves to. The two icons are new; the
-front door renders without them but with broken images.
+The count should print **13**.
+
+Both page filenames, because the live site is served from `app.html` and
+`index.html` is what the directory root resolves to.
+
+Every image, not a named list. A named list is one more thing to forget, and
+forgetting it renders the new front door with broken images - worse than not
+deploying at all. This deploy alone replaces the banner and adds three icons
+the server has never seen: the three-figure Connect, the paper plane Share,
+and the white swing glyph.
+
+Images before the page, so there is never a moment where the page is live and
+asking for files that are not there yet.
+
+The page requests each image with a `?v=<hash>` suffix. That is what forces a
+browser holding yesterday's banner to fetch today's; without it, anybody who
+opened the app before this deploy would keep seeing the old build. Run
+`python3 stamp_assets.py` locally after changing any image, or the suffix goes
+stale and the caching problem comes back.
 
 ---
 
