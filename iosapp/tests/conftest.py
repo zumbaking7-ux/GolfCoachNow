@@ -118,12 +118,22 @@ def fresh_rate_limits():
 
     Clearing the internal dict rather than rebuilding the object, because the
     dependency closes over this instance.
+
+    The sign in endpoints keep their own, much tighter buckets - five requests
+    in five minutes, because they send email - and they were not cleared here
+    until a test file that signs in more than five times went from passing on
+    its own to failing in the suite. Exactly the moving failure this fixture
+    was written to prevent, in the one place it did not reach.
     """
+    from payments.auth_routes import _by_caller, _by_email
     from payments.rate_limit import _limiter
 
-    _limiter._hits.clear()
+    buckets = (_limiter, _by_caller, _by_email)
+    for bucket in buckets:
+        bucket._hits.clear()
     yield
-    _limiter._hits.clear()
+    for bucket in buckets:
+        bucket._hits.clear()
 
 
 @pytest.fixture

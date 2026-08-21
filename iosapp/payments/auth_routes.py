@@ -15,6 +15,8 @@ from payments.accounts import (
     normalise_email,
     request_login_code,
     revoke_token,
+    set_name,
+    user_for_token,
     verify_login_code,
 )
 from payments.config import settings
@@ -23,7 +25,9 @@ from payments.email_sender import send_login_code
 from payments.logging_config import fields, get_logger
 from payments.rate_limit import SlidingWindowLimiter, client_key
 from payments.schemas import (
+    NameResponse,
     RequestCodeRequest,
+    SetNameRequest,
     VerifyCodeRequest,
     VerifyCodeResponse,
 )
@@ -142,6 +146,33 @@ def verify_code(
         raise HTTPException(status_code=401, detail="That code is not valid.")
 
     return VerifyCodeResponse(token=signed_in.token, name=signed_in.name)
+
+
+@router.post(
+    "/name",
+    summary="Name the signed in account",
+    responses={
+        200: {"description": "Stored. Returns the name as it was saved."},
+        401: {"description": "No live token."},
+    },
+)
+def set_account_name(
+    payload: SetNameRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> NameResponse:
+    """Store what to call this person.
+
+    Deliberately after sign in rather than during it. The alternative - having
+    the app ask whether an address already has a name before the code is
+    checked - would answer that question for anybody who asked, which is a way
+    of listing who has an account here.
+    """
+    user = user_for_token(db, bearer_token(request))
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in first.")
+
+    return NameResponse(name=set_name(db, user, payload.name))
 
 
 @router.post(

@@ -230,6 +230,38 @@ final class APIClient {
         }.resume()
     }
 
+    /// Name the signed in account.
+    ///
+    /// Separate from signing in, because the only way to know beforehand
+    /// whether an account already has a name is to ask the server about the
+    /// address, and it would answer for anybody who asked.
+    func setName(_ name: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let url = URL(string: APIConfig.baseURL + "/auth/name") else {
+            completion(.failure(APIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = AuthManager.shared.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["name": name])
+
+        session.dataTask(with: request) { _, response, error in
+            if let error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse else {
+                completion(.failure(APIError.invalidResponse)); return
+            }
+            if (200...299).contains(http.statusCode) {
+                completion(.success(()))
+            } else {
+                completion(.failure(APIError.requestFailed(statusCode: http.statusCode)))
+            }
+        }.resume()
+    }
+
     func signOut(completion: @escaping (Result<Void, Error>) -> Void) {
         guard let url = URL(string: APIConfig.baseURL + "/auth/sign-out") else {
             completion(.failure(APIError.invalidURL))

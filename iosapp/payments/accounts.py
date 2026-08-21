@@ -191,6 +191,27 @@ def verify_login_code(
     return SignIn(token=token, name=user.name)
 
 
+def set_name(session: Session, user: User, name: str) -> str | None:
+    """Name an account that does not have one yet, or correct one that does.
+
+    Separate from signing in on purpose. Asking for a name on the sign in
+    screen means asking every returning golfer for something already stored,
+    and the only way to avoid that is to tell the app whether the address is
+    known before the code is checked - which tells anybody who asks which
+    addresses have accounts.
+
+    Asking afterwards costs a screen that a new golfer sees once and an
+    existing one never sees at all.
+    """
+    cleaned = (name or "").strip()[:NAME_LENGTH]
+    if not cleaned:
+        return user.name
+
+    user.name = cleaned
+    session.commit()
+    return user.name
+
+
 def _user_by_email(session: Session, address: str) -> User | None:
     """Its own function so the tests can force the race below."""
     return session.scalars(select(User).where(User.email == address)).first()

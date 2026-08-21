@@ -362,9 +362,14 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
 
   <div id="login-code-step" style="display:none">
     <input type="text" id="login-code" class="login-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" pattern="[0-9]*">
-    <input type="text" id="login-name" class="login-input" placeholder="Your first name" maxlength="80" autocomplete="given-name">
     <button class="login-btn" id="login-verify-btn" onclick="loginVerifyCode()">Verify</button>
     <button class="login-link" onclick="loginBackToEmail()">Use different email</button>
+  </div>
+
+  <div id="login-name-step" style="display:none">
+    <input type="text" id="login-name" class="login-input" placeholder="Your first name" maxlength="80" autocomplete="given-name">
+    <button class="login-btn" id="login-name-btn" onclick="loginSaveName()">Continue</button>
+    <button class="login-link" onclick="loginSkipName()">Skip for now</button>
   </div>
 
   <div id="login-error" class="login-error"></div>
@@ -521,10 +526,6 @@ async function loginSendCode() {
     if (!res.ok) throw new Error('Failed to send code');
     document.getElementById('login-email-step').style.display = 'none';
     document.getElementById('login-code-step').style.display = '';
-    const known = localStorage.getItem('gcn_name_for_' + email.toLowerCase());
-    const nameInput = document.getElementById('login-name');
-    nameInput.value = known || '';
-    nameInput.style.display = known ? 'none' : '';
     document.getElementById('login-title').textContent = 'Enter Code';
     document.getElementById('login-subtitle').textContent = 'We sent a 6-digit code to ' + email;
   } catch(e) {
@@ -535,7 +536,6 @@ async function loginSendCode() {
 async function loginVerifyCode() {
   const email = document.getElementById('login-email').value.trim();
   const code = document.getElementById('login-code').value.trim();
-  const name = document.getElementById('login-name').value.trim();
   if (code.length !== 6) { document.getElementById('login-error').textContent = 'Enter the 6-digit code'; return; }
   const btn = document.getElementById('login-verify-btn');
   btn.disabled = true; btn.textContent = 'Verifying...';
@@ -543,7 +543,7 @@ async function loginVerifyCode() {
   try {
     const res = await fetch(API + '/auth/verify-code', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, code, device_id: deviceId, name})
+      body: JSON.stringify({email, code, device_id: deviceId})
     });
     if (res.status === 401) throw new Error('Invalid or expired code. Try again.');
     if (res.status === 429) throw new Error('Too many attempts. Try again shortly.');
@@ -554,25 +554,71 @@ async function loginVerifyCode() {
     localStorage.setItem('gcn_auth_email', authEmail);
     if (authName) {
       localStorage.setItem('gcn_auth_name', authName);
-      // Kept past sign out, keyed by address, so a returning golfer is not
-      // asked their name again. Someone else signing in on the same device
-      // types a different address and gets a fresh field, so nothing of
-      // theirs is shown to anyone.
-      localStorage.setItem('gcn_name_for_' + email.toLowerCase(), authName);
     } else {
       localStorage.removeItem('gcn_auth_name');
     }
     updateGreeting();
     updateAccountUI();
+
+    // The account decides whether this is asked, not the browser. A returning
+    // golfer already has a name stored and is never shown the field, on any
+    // device - which the old localStorage cache could not manage, since it
+    // only knew about names typed into this browser.
+    if (!authName) {
+      showNameStep();
+      return;
+    }
     goHome();
   } catch(e) {
     document.getElementById('login-error').textContent = e.message;
   }
   btn.disabled = false; btn.textContent = 'Verify';
 }
+function showNameStep() {
+  document.getElementById('login-code-step').style.display = 'none';
+  document.getElementById('login-name-step').style.display = '';
+  document.getElementById('login-title').textContent = 'Almost there';
+  document.getElementById('login-subtitle').textContent = 'What should we call you?';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-name').focus();
+}
+
+async function loginSaveName() {
+  const name = document.getElementById('login-name').value.trim();
+  if (!name) { loginSkipName(); return; }
+
+  const btn = document.getElementById('login-name-btn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const res = await fetch(API + '/auth/name', {
+      method:'POST',
+      headers: Object.assign({'Content-Type':'application/json'}, authHeaders()),
+      body: JSON.stringify({name})
+    });
+    if (res.ok) {
+      authName = (await res.json()).name || null;
+      if (authName) localStorage.setItem('gcn_auth_name', authName);
+      updateGreeting();
+    }
+  } catch(e) {
+    // A name is a nicety. Failing to store one must not strand somebody who
+    // has already signed in successfully.
+  }
+  btn.disabled = false; btn.textContent = 'Continue';
+  loginSkipName();
+}
+
+function loginSkipName() {
+  document.getElementById('login-name-step').style.display = 'none';
+  document.getElementById('login-name').value = '';
+  updateAccountUI();
+  goHome();
+}
+
 function loginBackToEmail() {
   document.getElementById('login-email-step').style.display = '';
   document.getElementById('login-code-step').style.display = 'none';
+  document.getElementById('login-name-step').style.display = 'none';
   document.getElementById('login-code').value = '';
   document.getElementById('login-error').textContent = '';
   document.getElementById('login-title').textContent = 'Sign In';

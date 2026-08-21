@@ -78,6 +78,9 @@ data class EntitlementResponse(
 // by a person, so a quote or a backslash in it would otherwise produce
 // malformed JSON and a baffling 422.
 @Serializable
+data class SetNameRequest(val name: String)
+
+@Serializable
 data class VerifyCodeRequest(
     val email: String,
     val code: String,

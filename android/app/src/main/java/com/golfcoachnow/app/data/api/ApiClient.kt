@@ -219,6 +219,26 @@ object ApiClient {
         }
     }
 
+    suspend fun setName(name: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val payload = json.encodeToString(SetNameRequest(name))
+            val request = Request.Builder()
+                .url("$baseUrl/auth/name")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .apply {
+                    AuthManager.token?.let { addHeader("Authorization", "Bearer $it") }
+                }
+                .build()
+            val response = client.newCall(request).execute()
+            response.use {
+                if (it.isSuccessful) Result.success(Unit)
+                else Result.failure(ApiException(it.code, "Could not save that name"))
+            }
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun signOut(token: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()

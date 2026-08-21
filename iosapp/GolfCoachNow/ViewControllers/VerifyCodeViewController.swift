@@ -4,6 +4,10 @@ final class VerifyCodeViewController: UIViewController {
 
     private let email: String
 
+    /// True once the code has been accepted and the account turned out to have
+    /// no name. The same button then means Continue rather than Verify.
+    private var askingForName = false
+
     init(email: String) {
         self.email = email
         super.init(nibName: nil, bundle: nil)
@@ -112,11 +116,14 @@ final class VerifyCodeViewController: UIViewController {
         view.backgroundColor = UIColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 1.0)
         subtitleLabel.text = "We sent a 6-digit code to\n\(email)"
         setupUI()
+        // Hidden until the code has been accepted and the account turns out
+        // to have no name. Asking here rather than alongside the code, because
+        // the alternative reveals which addresses have accounts.
+        nameField.isHidden = true
+        verifyButton.setTitle("Verify", for: .normal)
         // Only ask a name the first time this device signs in with this
         // address. Asking every time invites people to keep changing it.
-        let known = AuthManager.shared.rememberedName(for: email)
-        nameField.text = known
-        nameField.isHidden = (known?.isEmpty == false)
+        nameField.text = nil
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -199,6 +206,11 @@ final class VerifyCodeViewController: UIViewController {
     }
 
     @objc private func verifyTapped() {
+        if askingForName {
+            saveNameAndFinish()
+            return
+        }
+
         let code = digitFields.map { $0.text ?? "" }.joined()
         guard code.count == 6 else {
             shakeFields()
@@ -211,7 +223,7 @@ final class VerifyCodeViewController: UIViewController {
         APIClient.shared.verifyLoginCode(
             email: email,
             code: code,
-            name: nameField.text
+            name: nil
         ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.setLoading(false)
@@ -250,10 +262,55 @@ final class VerifyCodeViewController: UIViewController {
         AuthManager.shared.token = token
         AuthManager.shared.email = email
         AuthManager.shared.name = name
-        AuthManager.shared.remember(name: name, for: email)
         NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         EntitlementManager.shared.checkRemoteStatus()
 
+        // A returning golfer already has a name and is never asked again, on
+        // any device. Only an account without one sees the field.
+        if (name ?? "").isEmpty {
+            askForName()
+            return
+        }
+
+        finish()
+    }
+
+    private func askForName() {
+        titleLabel.text = "Almost there"
+        subtitleLabel.text = "What should we call you?"
+        digitsStack.isHidden = true
+        resendButton.isHidden = true
+        nameField.isHidden = false
+        verifyButton.setTitle("Continue", for: .normal)
+        askingForName = true
+        nameField.becomeFirstResponder()
+    }
+
+    private func saveNameAndFinish() {
+        let typed = (nameField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else {
+            finish()
+            return
+        }
+
+        view.endEditing(true)
+        setLoading(true)
+        APIClient.shared.setName(typed) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.setLoading(false)
+                if case .success = result {
+                    AuthManager.shared.name = typed
+                    NotificationCenter.default.post(name: .authStateDidChange, object: nil)
+                }
+                // Signed in either way. A name is a nicety, and failing to
+                // store one must not strand somebody who has already proved
+                // who they are.
+                self?.finish()
+            }
+        }
+    }
+
+    private func finish() {
         let presenting = presentingViewController?.presentingViewController
         presenting?.dismiss(animated: true)
     }

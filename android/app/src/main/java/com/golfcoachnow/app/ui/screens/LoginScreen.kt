@@ -37,8 +37,11 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    // True once we know this device has signed in with this address before.
-    var nameAlreadyKnown by remember { mutableStateOf(false) }
+    // Set once the code has been accepted and the account turns out to have no
+    // name yet. Asked here rather than on the sign in form: the only way to
+    // know beforehand is to ask the server whether the address is known, which
+    // answers that question for anybody who asks.
+    var askingForName by remember { mutableStateOf(false) }
     var codeSent by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -65,7 +68,7 @@ fun LoginScreen(
         Spacer(Modifier.height(48.dp))
 
         Text(
-            text = if (codeSent) "Enter Code" else "Sign In",
+            text = if (askingForName) "Almost there" else if (codeSent) "Enter Code" else "Sign In",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -74,7 +77,8 @@ fun LoginScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = if (codeSent) "We sent a 6-digit code to\n$email"
+            text = if (askingForName) "What should we call you?"
+            else if (codeSent) "We sent a 6-digit code to\n$email"
                    else "Enter your email to receive\na sign-in code",
             fontSize = 15.sp,
             color = TextMuted,
@@ -84,7 +88,60 @@ fun LoginScreen(
 
         Spacer(Modifier.height(32.dp))
 
-        if (!codeSent) {
+        if (askingForName) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { if (it.length <= 80) name = it },
+                label = { Text("Your first name") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done,
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GolfGreen,
+                    unfocusedBorderColor = GolfGreenBorder,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = GolfGreen,
+                    focusedLabelColor = GolfGreen,
+                    unfocusedLabelColor = TextMuted,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            GreenButton(
+                text = "Continue",
+                enabled = !loading,
+                loading = loading,
+                onClick = {
+                    val typed = name.trim()
+                    if (typed.isEmpty()) {
+                        onSignedIn()
+                    } else {
+                        loading = true
+                        scope.launch {
+                            ApiClient.setName(typed).onSuccess {
+                                AuthManager.save(context, AuthManager.token.orEmpty(), email, typed)
+                            }
+                            loading = false
+                            // Signed in either way. A name is a nicety, and
+                            // failing to store one must not strand somebody
+                            // who has already proved who they are.
+                            onSignedIn()
+                        }
+                    }
+                },
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            TextButton(onClick = { onSignedIn() }) {
+                Text("Skip for now", color = GolfGreen, fontSize = 14.sp)
+            }
+        } else if (!codeSent) {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it.trim(); error = null },
@@ -102,9 +159,6 @@ fun LoginScreen(
                             val result = ApiClient.requestCode(email)
                             loading = false
                             result.onSuccess {
-                                val known = AuthManager.rememberedName(context, email.trim())
-                                nameAlreadyKnown = !known.isNullOrBlank()
-                                name = known.orEmpty()
                                 codeSent = true
                             }
                             result.onFailure { error = it.message ?: "Failed to send code" }
@@ -136,9 +190,6 @@ fun LoginScreen(
                         val result = ApiClient.requestCode(email)
                         loading = false
                         result.onSuccess {
-                            val known = AuthManager.rememberedName(context, email.trim())
-                            nameAlreadyKnown = !known.isNullOrBlank()
-                            name = known.orEmpty()
                             codeSent = true
                         }
                         result.onFailure { error = it.message ?: "Failed to send code" }
@@ -160,11 +211,11 @@ fun LoginScreen(
                         loading = true
                         error = null
                         scope.launch {
-                            val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId, name)
+                            val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId)
                             loading = false
                             result.onSuccess { resp ->
                                 AuthManager.save(context, resp.token, email, resp.name)
-                                onSignedIn()
+                                if (resp.name.isNullOrBlank()) askingForName = true else onSignedIn()
                             }
                             result.onFailure { error = it.message ?: "Invalid code" }
                         }
@@ -182,34 +233,6 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Shown only the first time this device signs in with this
-            // address. After that the account already has a name, and asking
-            // again invites people to keep changing it.
-            if (!nameAlreadyKnown) {
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { if (it.length <= 80) name = it },
-                label = { Text("Your first name") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Done,
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GolfGreen,
-                    unfocusedBorderColor = GolfGreenBorder,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = GolfGreen,
-                    focusedLabelColor = GolfGreen,
-                    unfocusedLabelColor = TextMuted,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            }
-
             Spacer(Modifier.height(20.dp))
 
             GreenButton(
@@ -220,11 +243,11 @@ fun LoginScreen(
                     loading = true
                     error = null
                     scope.launch {
-                        val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId, name)
+                        val result = ApiClient.verifyCode(email, code, EntitlementManager.deviceId)
                         loading = false
                         result.onSuccess { resp ->
                             AuthManager.save(context, resp.token, email, resp.name)
-                            onSignedIn()
+                            if (resp.name.isNullOrBlank()) askingForName = true else onSignedIn()
                         }
                         result.onFailure { error = it.message ?: "Invalid code" }
                     }

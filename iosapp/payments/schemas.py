@@ -193,6 +193,31 @@ class VerifyCodeResponse(BaseModel):
     )
 
 
+class SetNameRequest(BaseModel):
+    """What to call this person, sent once they are signed in."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"name": "John"}}
+    )
+
+    name: str = Field(
+        min_length=1,
+        max_length=80,
+        description="Shown on the home screen. Trimmed, and truncated at 80.",
+    )
+
+
+class NameResponse(BaseModel):
+    """The name as it was actually stored."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"name": "John"}})
+
+    name: str | None = Field(
+        default=None,
+        description="What the account is called now, after trimming.",
+    )
+
+
 class BillingPortalRequest(BaseModel):
     """Ask for a link to Stripe's subscription management page."""
 
