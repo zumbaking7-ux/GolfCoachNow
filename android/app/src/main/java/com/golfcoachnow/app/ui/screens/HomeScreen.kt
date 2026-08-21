@@ -86,7 +86,7 @@ fun HomeScreen(
                 .padding(horizontal = 12.dp)
                 // The image's own ratio, so the box is never a different shape
                 // from the picture and the golfer keeps his club.
-                .aspectRatio(2095f / 817f)
+                .aspectRatio(740f / 264f)
                 .clip(RoundedCornerShape(14.dp)),
             contentScale = ContentScale.Fit,
         )
