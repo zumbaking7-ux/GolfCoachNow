@@ -4,7 +4,7 @@ import os
 import re
 import tempfile
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query, Request
-from fastapi.responses import JSONResponse, HTMLResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 from typing import Optional
 from wedge import process_mobile_input as wedge_process, CORRECTIONS as WEDGE_CORRECTIONS
@@ -759,16 +759,19 @@ def media(path: str, request: Request):
 
     length = end - start + 1
 
-    def chunks():
-        with open(target, "rb") as handle:
-            handle.seek(start)
-            left = length
-            while left > 0:
-                block = handle.read(min(65536, left))
-                if not block:
-                    break
-                left -= len(block)
-                yield block
+    # Read and return in one piece rather than streaming it.
+    #
+    # This host serves the app through a hand-written ASGI-to-WSGI bridge, and
+    # that bridge does not carry a streaming response: a StreamingResponse from
+    # here hung and delivered nothing, while a 404 from the same route answered
+    # in two seconds. One body, one send, is what survives the crossing.
+    #
+    # It costs memory - a request with no range reads the whole clip in - but a
+    # player sends ranges once it sees Accept-Ranges, and those are small. The
+    # first request for a clip is the expensive one and the rest are not.
+    with open(target, "rb") as handle:
+        handle.seek(start)
+        body = handle.read(length)
 
     headers = {
         "Content-Length": str(length),
@@ -781,7 +784,7 @@ def media(path: str, request: Request):
     if partial:
         headers["Content-Range"] = "bytes %d-%d/%d" % (start, end, size)
 
-    return StreamingResponse(chunks(), status_code=206 if partial else 200, headers=headers)
+    return Response(content=body, status_code=206 if partial else 200, headers=headers)
 
 
 @app.get("/download", response_class=HTMLResponse)
