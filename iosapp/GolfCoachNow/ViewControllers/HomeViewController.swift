@@ -23,6 +23,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
         iv.clipsToBounds = true
+        iv.layer.cornerRadius = 14
         return iv
     }()
 
@@ -157,8 +158,10 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
 
             bannerImageView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            bannerImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            bannerImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            // Inset to the same margin the cards use, so the club head is not
+            // flush against the edge of the screen.
+            bannerImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            bannerImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
             // Tied to the width at the image's own ratio rather than pinned
             // to a constant, so no screen size crops the golfer out of frame.
             bannerImageView.heightAnchor.constraint(
@@ -251,14 +254,14 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
     private func setupSkillCards() {
         skillStack.addArrangedSubview(makeSkillCard(
             title: "SWING CORRECT",
-            description: "Analyze your swing. Get instant feedback.",
+            description: "Analyze your swing.\nGet instant feedback.",
             ctaTitle: "START SWING CORRECT  →",
             iconAsset: GolfModule.swing.cardIconAsset,
             action: #selector(correctTapped(_:))
         ))
         skillStack.addArrangedSubview(makeSkillCard(
             title: "SWING LEARN",
-            description: "Learn your swing. Get instant feedback.",
+            description: "Learn your swing.\nGet instant feedback.",
             ctaTitle: "START SWING LEARN  →",
             iconAsset: GolfModule.swing.cardIconAsset,
             action: #selector(learnTapped(_:))
@@ -299,7 +302,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         descLabel.font = .systemFont(ofSize: 11, weight: .regular)
         descLabel.textColor = Theme.textMuted
         descLabel.textAlignment = .center
-        descLabel.numberOfLines = 2
+        descLabel.numberOfLines = 3
 
         let ctaContainer = GradientButton(title: ctaTitle)
 

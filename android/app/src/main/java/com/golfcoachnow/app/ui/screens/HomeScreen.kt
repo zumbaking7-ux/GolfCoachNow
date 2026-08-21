@@ -81,9 +81,13 @@ fun HomeScreen(
             contentDescription = "GolfCoachNow Banner",
             modifier = Modifier
                 .fillMaxWidth()
+                // Inset to the same margin the cards use, so the club head is
+                // not flush against the edge of the screen.
+                .padding(horizontal = 12.dp)
                 // The image's own ratio, so the box is never a different shape
                 // from the picture and the golfer keeps his club.
-                .aspectRatio(1926f / 817f),
+                .aspectRatio(1926f / 817f)
+                .clip(RoundedCornerShape(14.dp)),
             contentScale = ContentScale.Fit,
         )
 
@@ -186,7 +190,7 @@ fun HomeScreen(
         ) {
             SkillCard(
                 title = "SWING CORRECT",
-                description = "Analyze your swing. Get instant feedback.",
+                description = "Analyze your swing.\nGet instant feedback.",
                 ctaLabel = "START SWING CORRECT →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),
@@ -197,7 +201,7 @@ fun HomeScreen(
             )
             SkillCard(
                 title = "SWING LEARN",
-                description = "Learn your swing. Get instant feedback.",
+                description = "Learn your swing.\nGet instant feedback.",
                 ctaLabel = "START SWING LEARN →",
                 iconRes = R.drawable.ic_swing,
                 modifier = Modifier.weight(1f),

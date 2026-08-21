@@ -33,7 +33,8 @@ body{background:var(--bg)}
 .scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
 
 /* ── Home ── */
-.banner{width:100%;aspect-ratio:1926 / 817;object-fit:cover;display:block}
+.banner{display:block;width:calc(100% - 24px);margin:0 auto;
+aspect-ratio:1926 / 817;object-fit:cover;border-radius:14px}
 .greeting-wrap{margin-top:10px;padding:0 12px;position:relative;z-index:1}
 .greeting{border-radius:12px;border:1px solid var(--green-border);background:var(--card);
 overflow:hidden;position:relative;box-shadow:0 4px 12px var(--green-glow)}
@@ -253,13 +254,13 @@ border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite}
     <div class="skill-card" onclick="startCorrect()">
       <img src="/static/img/ic_swing.png" alt="Swing Correct">
       <div class="name">SWING CORRECT</div>
-      <div class="desc">Analyze your swing. Get instant feedback.</div>
+      <div class="desc">Analyze your swing.<br>Get instant feedback.</div>
       <div class="cta-btn">START SWING CORRECT &rarr;</div>
     </div>
     <div class="skill-card" onclick="startLearn()">
       <img src="/static/img/ic_swing.png" alt="Swing Learn">
       <div class="name">SWING LEARN</div>
-      <div class="desc">Learn your swing. Get instant feedback.</div>
+      <div class="desc">Learn your swing.<br>Get instant feedback.</div>
       <div class="cta-btn">START SWING LEARN &rarr;</div>
     </div>
   </div>
