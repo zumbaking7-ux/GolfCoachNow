@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import tempfile
@@ -671,6 +672,33 @@ _GO_PAGE = """<!DOCTYPE html>
 </div></div>
 <script>setTimeout(function(){{window.location.href="golfcoachnow://mode/{mode}"}},300)</script>
 </body></html>"""
+
+
+# Where the static files actually are, resolved from this module rather than
+# from the working directory. Relative paths on this host have already
+# resolved somewhere unexpected once - there are two .env files and two
+# payments.db for exactly that reason - so this one is pinned.
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+@app.get("/download", response_class=HTMLResponse)
+def download_page():
+    """The install page for the Android test build.
+
+    The same file the static mapping serves at /static/download.html, given a
+    url worth putting in a message to somebody. A path ending in .html reads
+    like a file because it is one, and this is the link that gets pasted to
+    testers and journalists.
+
+    Read per request rather than cached at import: the page can then be
+    replaced by uploading it, with no reload, which is how the rest of the
+    static assets already work.
+    """
+    try:
+        with io.open(os.path.join(_STATIC_DIR, "download.html"), encoding="utf-8") as page:
+            return page.read()
+    except OSError:
+        raise HTTPException(404, "The install page has not been published yet.")
 
 
 @app.get("/go/swing", response_class=HTMLResponse)
