@@ -225,8 +225,7 @@ final class HomeViewController: UIViewController, MFMailComposeViewControllerDel
         ]
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: Self.timeOfDayGreeting() + ",
-", attributes: bold))
+        text.append(NSAttributedString(string: Self.timeOfDayGreeting() + ",\n", attributes: bold))
         // The full stop carries the name's colour rather than the label's.
         text.append(NSAttributedString(
             string: who + ".",
